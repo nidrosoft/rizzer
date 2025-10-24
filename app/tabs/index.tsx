@@ -35,9 +35,7 @@ import {
 } from '@/data/homeData';
 
 // UI Components
-import SearchBar from '@/components/ui/SearchBar';
 import DateProfilesLoading from '@/components/home/DateProfilesLoading';
-import DateProfileFilterSheet from '@/components/home/DateProfileFilterSheet';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -53,26 +51,18 @@ export default function HomeScreen() {
     isLoading,
     isRefreshing,
     error,
-    searchQuery,
-    filterStatus,
-    sortBy,
     setProfiles,
     setLoading,
     setRefreshing,
     setError,
-    setSearchQuery,
-    setFilterStatus,
-    setSortBy,
-    getFilteredProfiles,
   } = useDateProfileStore();
   
   // Local State
   const [showIntroModal, setShowIntroModal] = useState(false);
-  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   
-  // Get filtered profiles and transform to home format
-  const filteredProfiles = getFilteredProfiles().map((profile) => ({
+  // Transform profiles to home format
+  const transformedProfiles = profiles.map((profile) => ({
     id: profile.id,
     name: profile.basicInfo.name,
     age: profile.basicInfo.age,
@@ -184,18 +174,6 @@ export default function HomeScreen() {
     router.push('/home/profile');
   };
 
-  const handleFilterPress = () => {
-    setShowFilterSheet(true);
-  };
-
-  const handleApplyFilters = (
-    status: 'all' | 'talking' | 'dating' | 'exclusive' | 'engaged',
-    sort: 'newest' | 'oldest' | 'name_asc' | 'name_desc'
-  ) => {
-    setFilterStatus(status);
-    setSortBy(sort);
-    showToast('Filters applied', 'success');
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -217,24 +195,6 @@ export default function HomeScreen() {
           onNotificationPress={handleNotificationPress}
           onProfilePress={handleUserProfilePress}
         />
-
-        {/* Search Bar with Filter */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchWrapper}>
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search date profiles..."
-            />
-          </View>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={handleFilterPress}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.filterIcon}>⚙️</Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Interest Tags */}
         <InterestTagsBar
@@ -259,7 +219,7 @@ export default function HomeScreen() {
           <DateProfilesLoading />
         ) : (
           <DateProfilesGallery
-            profiles={filteredProfiles}
+            profiles={transformedProfiles}
             onNewProfile={handleNewDateProfile}
             onProfilePress={handleProfilePress}
           />
@@ -296,14 +256,6 @@ export default function HomeScreen() {
         onContinue={handleContinueToFlow}
       />
 
-      {/* Filter Sheet */}
-      <DateProfileFilterSheet
-        visible={showFilterSheet}
-        onClose={() => setShowFilterSheet(false)}
-        currentStatus={filterStatus}
-        currentSort={sortBy}
-        onApply={handleApplyFilters}
-      />
     </SafeAreaView>
   );
 }
@@ -315,31 +267,5 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    gap: Spacing.sm,
-  },
-  searchWrapper: {
-    flex: 1,
-  },
-  filterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  filterIcon: {
-    fontSize: 20,
   },
 });

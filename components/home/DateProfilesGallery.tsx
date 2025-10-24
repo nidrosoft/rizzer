@@ -34,20 +34,23 @@ export default function DateProfilesGallery({
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Date Profiles</Text>
-        <TouchableOpacity
-          style={styles.newButton}
-          onPress={handleNewProfile}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={[Colors.gradientStart, Colors.gradientEnd]}
-            style={styles.newButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+        {/* Only show small "+ New" button when profiles exist */}
+        {profiles.length > 0 && (
+          <TouchableOpacity
+            style={styles.newButton}
+            onPress={handleNewProfile}
+            activeOpacity={0.8}
           >
-            <Text style={styles.newButtonText}>+ New</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={[Colors.gradientStart, Colors.gradientEnd]}
+              style={styles.newButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.newButtonText}>+ New</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </View>
 
       {profiles.length === 0 ? (
