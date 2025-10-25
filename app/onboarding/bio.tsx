@@ -15,8 +15,8 @@ export default function BioScreen() {
   const maxLength = 1000;
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 11,
-    nextRoute: '/onboarding/location',
+    stepNumber: 10,
+    nextRoute: '/onboarding/occupation',
     validateData: () => bio.trim().length >= 50,
     getDataToSave: () => ({ bio: bio.trim() }),
   });
@@ -54,8 +54,8 @@ export default function BioScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={11}
-      totalSteps={12}
+      currentStep={10}
+      totalSteps={16}
       icon={Edit}
       title="Tell us about yourself"
       helperText="Share your story - the more you tell us, the better we can help you connect"

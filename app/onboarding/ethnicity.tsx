@@ -25,7 +25,7 @@ export default function EthnicityScreen() {
   ];
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 5,
+    stepNumber: 13,
     nextRoute: '/onboarding/religion',
     validateData: () => selected !== '',
     getDataToSave: () => ({ ethnicity: selected }),
@@ -40,8 +40,8 @@ export default function EthnicityScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={5}
-      totalSteps={12}
+      currentStep={13}
+      totalSteps={16}
       icon={Global}
       title="What's your ethnicity?"
       helperText="This is optional and helps personalize your experience"

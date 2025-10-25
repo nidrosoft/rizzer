@@ -12,16 +12,16 @@ export default function OccupationScreen() {
   const [occupation, setOccupation] = useState('');
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 9,
-    nextRoute: '/onboarding/interests',
+    stepNumber: 11,
+    nextRoute: '/onboarding/height',
     validateData: () => occupation.trim().length >= 2,
     getDataToSave: () => ({ occupation: occupation.trim() }),
   });
 
   return (
     <OnboardingLayout
-      currentStep={9}
-      totalSteps={12}
+      currentStep={11}
+      totalSteps={16}
       icon={Briefcase}
       title="What do you do for work?"
       helperText="This helps us understand your lifestyle"

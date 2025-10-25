@@ -32,8 +32,8 @@ export default function PhotosScreen() {
   }, [user]);
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 13,
-    nextRoute: '/onboarding/lookingFor',
+    stepNumber: 8,
+    nextRoute: '/onboarding/interests',
     validateData: () => photo !== null,
     getDataToSave: () => ({ photos: photo ? [photo] : [] }),
   });
@@ -170,8 +170,8 @@ export default function PhotosScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={13}
-      totalSteps={13}
+      currentStep={8}
+      totalSteps={16}
       icon={Camera}
       title="Add your profile photo"
       helperText="Show your best self with a clear, recent photo"

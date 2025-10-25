@@ -25,7 +25,7 @@ export default function ReligionScreen() {
   ];
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 6,
+    stepNumber: 14,
     nextRoute: '/onboarding/zodiacSign',
     validateData: () => selected !== '',
     getDataToSave: () => ({ religion: selected }),
@@ -40,8 +40,8 @@ export default function ReligionScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={6}
-      totalSteps={12}
+      currentStep={14}
+      totalSteps={16}
       icon={Book}
       title="What are your religious beliefs?"
       helperText="This is optional and helps with compatibility"

@@ -38,7 +38,7 @@ export default function HeightScreen() {
   };
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 4,
+    stepNumber: 12,
     nextRoute: '/onboarding/ethnicity',
     validateData: () => true,
     getDataToSave: () => ({
@@ -66,8 +66,8 @@ export default function HeightScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={4}
-      totalSteps={12}
+      currentStep={12}
+      totalSteps={16}
       icon={Ruler}
       title="How tall are you?"
       helperText="Select your height and preferred unit"

@@ -20,8 +20,8 @@ export default function DrinkingScreen() {
   ];
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 8,
-    nextRoute: '/onboarding/occupation',
+    stepNumber: 16,
+    nextRoute: '/onboarding/setup-loading',
     validateData: () => selected !== '',
     getDataToSave: () => ({ drinking: selected }),
   });
@@ -35,8 +35,8 @@ export default function DrinkingScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={8}
-      totalSteps={12}
+      currentStep={16}
+      totalSteps={16}
       icon={Cup}
       title="Do you drink?"
       helperText="Help us match you with compatible people"

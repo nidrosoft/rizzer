@@ -96,7 +96,7 @@ export default function InterestsScreen() {
   };
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 10,
+    stepNumber: 9,
     nextRoute: '/onboarding/bio',
     validateData: () => isValid(),
     getDataToSave: () => ({
@@ -106,8 +106,8 @@ export default function InterestsScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={10}
-      totalSteps={12}
+      currentStep={9}
+      totalSteps={16}
       icon={Star}
       title="What are your interests?"
       helperText="Select at least 3 interests from each category"

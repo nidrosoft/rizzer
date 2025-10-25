@@ -61,7 +61,7 @@ export default function ZodiacSignScreen() {
   ];
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 7,
+    stepNumber: 15,
     nextRoute: '/onboarding/drinking',
     validateData: () => selectedSign !== '',
     getDataToSave: () => ({ zodiacSign: selectedSign }),
@@ -76,8 +76,8 @@ export default function ZodiacSignScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={7}
-      totalSteps={12}
+      currentStep={15}
+      totalSteps={16}
       icon={Lovely}
       title="What's your zodiac sign?"
       helperText="We've auto-detected it based on your birthday"
