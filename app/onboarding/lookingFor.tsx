@@ -14,7 +14,7 @@ export default function LookingForScreen() {
   const options = ['Men', 'Women', 'Non-binary', 'Everyone'];
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 14,
+    stepNumber: 6,
     nextRoute: '/onboarding/relationshipType',
     validateData: () => selected.length > 0,
     getDataToSave: () => ({ lookingFor: selected.join(', ') }),
@@ -33,8 +33,8 @@ export default function LookingForScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={14}
-      totalSteps={12}
+      currentStep={6}
+      totalSteps={16}
       icon={Heart}
       title="Who are you looking for?"
       helperText="Select all that apply"

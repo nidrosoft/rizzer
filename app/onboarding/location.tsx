@@ -21,8 +21,8 @@ export default function LocationScreen() {
   const [showModal, setShowModal] = useState(false);
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 12,
-    nextRoute: '/onboarding/photos',
+    stepNumber: 4,
+    nextRoute: '/onboarding/primaryGoal',
     validateData: () => !!city,
     getDataToSave: () => ({
       location: {
@@ -97,8 +97,8 @@ export default function LocationScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={12}
-      totalSteps={13}
+      currentStep={4}
+      totalSteps={16}
       icon={LocationIcon}
       title="Where are you located?"
       helperText="We'll show you events and dates nearby"

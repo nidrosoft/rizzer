@@ -21,7 +21,7 @@ export default function GenderScreen() {
 
   const { handleContinue, isSaving } = useOnboardingStep({
     stepNumber: 3,
-    nextRoute: '/onboarding/height',
+    nextRoute: '/onboarding/location',
     validateData: () => selectedGender !== '',
     getDataToSave: () => ({ gender: selectedGender }),
   });

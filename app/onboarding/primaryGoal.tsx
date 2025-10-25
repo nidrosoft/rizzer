@@ -26,16 +26,16 @@ export default function PrimaryGoalScreen() {
   };
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 16,
-    nextRoute: '/onboarding/setup-loading',
+    stepNumber: 5,
+    nextRoute: '/onboarding/lookingFor',
     validateData: () => selectedGoal !== '',
     getDataToSave: () => ({ primaryGoal: selectedGoal }),
   });
 
   return (
     <OnboardingLayout
-      currentStep={16}
-      totalSteps={12}
+      currentStep={5}
+      totalSteps={16}
       icon={Heart}
       title="What's your primary goal?"
       helperText="This helps us personalize your experience"

@@ -20,8 +20,8 @@ export default function RelationshipTypeScreen() {
   ];
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 15,
-    nextRoute: '/onboarding/primaryGoal',
+    stepNumber: 7,
+    nextRoute: '/onboarding/photos',
     validateData: () => selected !== '',
     getDataToSave: () => ({ relationshipType: selected }),
   });
@@ -35,8 +35,8 @@ export default function RelationshipTypeScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={15}
-      totalSteps={12}
+      currentStep={7}
+      totalSteps={16}
       icon={Heart}
       title="What type of relationship are you looking for?"
       helperText="Be honest - this helps us match you better"
