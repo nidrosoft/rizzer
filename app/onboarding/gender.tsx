@@ -13,10 +13,10 @@ export default function GenderScreen() {
   const [selectedGender, setSelectedGender] = useState<'male' | 'female' | 'other' | ''>('');
 
   const genderOptions = [
-    { label: 'Man', value: 'male' as const },
-    { label: 'Woman', value: 'female' as const },
-    { label: 'Non-binary', value: 'other' as const },
-    { label: 'Prefer not to say', value: 'other' as const },
+    { label: 'Man', value: 'male' as const, key: 'male' },
+    { label: 'Woman', value: 'female' as const, key: 'female' },
+    { label: 'Non-binary', value: 'other' as const, key: 'non-binary' },
+    { label: 'Prefer not to say', value: 'other' as const, key: 'prefer-not-say' },
   ];
 
   const { handleContinue, isSaving } = useOnboardingStep({
@@ -47,7 +47,7 @@ export default function GenderScreen() {
         <View style={styles.optionsContainer}>
           {genderOptions.map((option) => (
             <TouchableOpacity
-              key={option.value}
+              key={option.key}
               style={styles.optionRow}
               onPress={() => handleSelect(option.value)}
               activeOpacity={0.7}

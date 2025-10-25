@@ -14,7 +14,7 @@ interface Category {
 
 export default function InterestsScreen() {
   const router = useRouter();
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedInterests, setSelectedInterests] = useState<Record<string, string[]>>({});
   const [expandedCategory, setExpandedCategory] = useState<string>('Activities');
 
   const categories: Category[] = [
@@ -55,22 +55,53 @@ export default function InterestsScreen() {
     setExpandedCategory(expandedCategory === categoryName ? '' : categoryName);
   };
 
-  const toggleInterest = (interest: string) => {
+  const toggleInterest = (categoryName: string, interest: string) => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    if (selectedInterests.includes(interest)) {
-      setSelectedInterests(selectedInterests.filter(i => i !== interest));
-    } else if (selectedInterests.length < 10) {
-      setSelectedInterests([...selectedInterests, interest]);
+    
+    const categoryInterests = selectedInterests[categoryName] || [];
+    
+    if (categoryInterests.includes(interest)) {
+      // Remove interest
+      setSelectedInterests({
+        ...selectedInterests,
+        [categoryName]: categoryInterests.filter(i => i !== interest)
+      });
+    } else if (categoryInterests.length < 5) {
+      // Add interest (max 5 per category)
+      setSelectedInterests({
+        ...selectedInterests,
+        [categoryName]: [...categoryInterests, interest]
+      });
     }
+  };
+
+  // Check if all categories have at least 3 interests
+  const isValid = () => {
+    return categories.every(category => {
+      const count = (selectedInterests[category.name] || []).length;
+      return count >= 3;
+    });
+  };
+
+  // Get total count of selected interests
+  const getTotalCount = () => {
+    return Object.values(selectedInterests).reduce((sum, arr) => sum + arr.length, 0);
+  };
+
+  // Get count for specific category
+  const getCategoryCount = (categoryName: string) => {
+    return (selectedInterests[categoryName] || []).length;
   };
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
     stepNumber: 10,
     nextRoute: '/onboarding/bio',
-    validateData: () => selectedInterests.length >= 3,
-    getDataToSave: () => ({ interests: selectedInterests }),
+    validateData: () => isValid(),
+    getDataToSave: () => ({
+      interests: Object.values(selectedInterests).flat()
+    }),
   });
 
   return (
@@ -79,9 +110,9 @@ export default function InterestsScreen() {
       totalSteps={12}
       icon={Star}
       title="What are your interests?"
-      helperText={`Select at least 3 interests (${selectedInterests.length}/10 selected)`}
+      helperText="Select at least 3 interests from each category"
       onContinue={saveAndContinue}
-      canContinue={selectedInterests.length >= 3 && !isSaving}
+      canContinue={isValid() && !isSaving}
     >
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         {categories.map((category, index) => (
@@ -92,7 +123,15 @@ export default function InterestsScreen() {
               onPress={() => toggleCategory(category.name)}
               activeOpacity={0.7}
             >
-              <Text style={styles.categoryName}>{category.name}</Text>
+              <View style={styles.categoryLeft}>
+                <Text style={styles.categoryName}>{category.name}</Text>
+                <Text style={[
+                  styles.categoryCount,
+                  getCategoryCount(category.name) >= 3 && styles.categoryCountComplete
+                ]}>
+                  {getCategoryCount(category.name)}/3
+                </Text>
+              </View>
               {expandedCategory === category.name ? (
                 <ArrowUp2 size={20} color={Colors.text} variant="Outline" />
               ) : (
@@ -108,15 +147,15 @@ export default function InterestsScreen() {
                     key={interest}
                     style={[
                       styles.interestChip,
-                      selectedInterests.includes(interest) && styles.selectedChip,
+                      (selectedInterests[category.name] || []).includes(interest) && styles.selectedChip,
                     ]}
-                    onPress={() => toggleInterest(interest)}
+                    onPress={() => toggleInterest(category.name, interest)}
                     activeOpacity={0.7}
                   >
                     <Text
                       style={[
                         styles.interestText,
-                        selectedInterests.includes(interest) && styles.selectedText,
+                        (selectedInterests[category.name] || []).includes(interest) && styles.selectedText,
                       ]}
                     >
                       {interest}
@@ -146,10 +185,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.md,
   },
+  categoryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   categoryName: {
     fontSize: FontSizes.md,
     fontWeight: FontWeights.semibold,
     color: Colors.text,
+  },
+  categoryCount: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textSecondary,
+    backgroundColor: Colors.backgroundGray,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  categoryCountComplete: {
+    color: Colors.background,
+    backgroundColor: Colors.purple,
   },
   interestsGrid: {
     flexDirection: 'row',

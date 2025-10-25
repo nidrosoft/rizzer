@@ -145,8 +145,8 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     const user = useAuthStore.getState().user;
 
     if (!user?.id) {
-      console.error('No user ID found');
-      return;
+      console.error('❌ No user ID found - user may not be logged in');
+      throw new Error('No user ID found. Please log in again.');
     }
 
     set({ isSaving: true });
