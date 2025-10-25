@@ -15,7 +15,10 @@ export interface OnboardingData {
   // Step 1: Name
   name?: string;
   
-  // Step 2: Date of Birth
+  // Step 2: Email
+  email?: string;
+  
+  // Step 3: Date of Birth
   dateOfBirth?: string;
   age?: number;
   
@@ -169,6 +172,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
         .from('users')
         .update({
           name: data.name,
+          email: data.email,
           date_of_birth: data.dateOfBirth,
           age: age,
           gender: data.gender,

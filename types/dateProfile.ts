@@ -100,6 +100,6 @@ export interface QuickNotesCardProps {
 
 export interface PhotoGalleryProps {
   photos: string[];
-  onAddPhoto: () => void;
+  onAddPhoto: (photoUris: string | string[]) => void;
   onViewPhoto: (photoIndex: number) => void;
 }

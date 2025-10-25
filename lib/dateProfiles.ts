@@ -446,9 +446,23 @@ function transformProfileData(dbProfile: any): DateProfileData {
     dbProfile.date_profile_photos
       ?.sort((a: any, b: any) => a.order_index - b.order_index)
       .map((p: any) => p.photo_url) || [];
+  
+  // If no photos in date_profile_photos table, use primary_photo from main table
+  if (photos.length === 0 && dbProfile.primary_photo) {
+    photos.push(dbProfile.primary_photo);
+  }
 
   // Get interests data
   const interestsData = dbProfile.date_profile_interests?.[0] || {};
+  
+  // Debug logging for interests
+  console.log('🔍 [transformProfileData] Interests Debug:', {
+    hasInterestsArray: !!dbProfile.date_profile_interests,
+    interestsArrayLength: dbProfile.date_profile_interests?.length,
+    interestsData: interestsData,
+    hobbies: interestsData.hobbies,
+    hobbiesLength: interestsData.hobbies?.length,
+  });
 
   // Get notes
   const notes =
@@ -472,9 +486,9 @@ function transformProfileData(dbProfile: any): DateProfileData {
       name: dbProfile.name,
       age: dbProfile.age || 0,
       birthday: dbProfile.birthday ? new Date(dbProfile.birthday) : undefined,
-      profession: dbProfile.profession || '',
+      profession: dbProfile.occupation || '',  // Database column is 'occupation'
       photo: photos[0] || '',
-      status: dbProfile.status,
+      status: dbProfile.relationship_stage || dbProfile.status,  // Use relationship_stage, fallback to status
       startDate: startDate,
       howWeMet: dbProfile.how_we_met,
     },

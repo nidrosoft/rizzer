@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ShieldTick, CloseSquare, TickCircle, ArrowRight, Clock } from 'iconsax-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ShieldTick, CloseSquare, TickCircle, ArrowRight, Clock, Danger, InfoCircle } from 'iconsax-react-native';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
 import { normalize, horizontalScale } from '@/utils/responsive';
 import { useAuthStore } from '@/store/authStore';
 import { sendOTP } from '@/lib/auth';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function PhoneOTPScreen() {
   const router = useRouter();
@@ -18,7 +18,11 @@ export default function PhoneOTPScreen() {
   const [timeLeft, setTimeLeft] = useState(60); // 60 seconds countdown
   const [canResend, setCanResend] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState({ title: '', message: '', emoji: '' });
+  const [errorMessage, setErrorMessage] = useState<{ title: string; message: string; icon: React.ReactNode }>({ 
+    title: '', 
+    message: '', 
+    icon: null 
+  });
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const login = useAuthStore((state) => state.login);
 
@@ -55,23 +59,23 @@ export default function PhoneOTPScreen() {
     }
   };
 
-  // Get funny error message for OTP errors
+  // Get error message with icon for OTP errors
   const getOTPErrorMessage = (error: string) => {
     const errorLower = error.toLowerCase();
     
     // Expired token
-    if (errorLower.includes('expired') || timeLeft === 0) {
+    if (errorLower.includes('expired') || errorLower.includes('token') || timeLeft === 0) {
       return {
-        emoji: '⏰',
+        icon: <Clock size={24} color="#FF6B6B" variant="Bold" />,
         title: 'Time\'s up!',
-        message: 'Your code took a little vacation and expired. No worries though—just hit resend and we\'ll send you a fresh one!'
+        message: 'Your code took a little vacation and expired. No worries though,just hit resend and we\'ll send you a fresh one!'
       };
     }
     
     // Invalid/wrong code
-    if (errorLower.includes('invalid') || errorLower.includes('incorrect') || errorLower.includes('wrong')) {
+    if (errorLower.includes('invalid') || errorLower.includes('incorrect') || errorLower.includes('wrong') || errorLower.includes('otp')) {
       return {
-        emoji: '🤨',
+        icon: <Danger size={24} color="#FF6B6B" variant="Bold" />,
         title: 'Hmm, that\'s not it...',
         message: 'The code you entered doesn\'t match what we sent. Double-check those digits and give it another shot!'
       };
@@ -80,7 +84,7 @@ export default function PhoneOTPScreen() {
     // Too many attempts
     if (errorLower.includes('too many') || errorLower.includes('attempts')) {
       return {
-        emoji: '🛑',
+        icon: <InfoCircle size={24} color="#FF6B6B" variant="Bold" />,
         title: 'Whoa there!',
         message: 'Too many tries! Take a quick breather, then request a new code and try again.'
       };
@@ -88,41 +92,65 @@ export default function PhoneOTPScreen() {
     
     // Default
     return {
-      emoji: '😅',
+      icon: <Danger size={24} color="#FF6B6B" variant="Bold" />,
       title: 'Oops, something went wrong',
       message: 'We couldn\'t verify that code. Mind trying again?'
     };
   };
 
   const handleVerify = async () => {
-    setIsLoading(true);
     const otpCode = otp.join('');
+    
+    // Validate OTP is complete
+    if (otpCode.length !== 6) {
+      return;
+    }
+
+    setIsLoading(true);
+    console.log('🔐 [OTP-VERIFY] Starting verification...');
 
     try {
       // Verify OTP and login via Supabase
+      console.log('🔐 [OTP-VERIFY] Calling login with phone:', phoneNumber);
       await login(phoneNumber as string, otpCode);
+      console.log('✅ [OTP-VERIFY] Login successful');
+
+      // Wait for auth store to fully update
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Get user to check onboarding status
       const user = useAuthStore.getState().user;
+      console.log('👤 [OTP-VERIFY] User after login:', user);
+
+      if (!user || !user.id) {
+        throw new Error('User not found after login. Please try again.');
+      }
 
       if (user?.name) {
         // User has completed onboarding - go to home
+        console.log('✅ [OTP-VERIFY] User has name, going to tabs');
         router.replace('/tabs');
       } else {
         // New user - go to onboarding
+        console.log('📝 [OTP-VERIFY] New user, going to onboarding');
         router.replace('/onboarding-welcome');
       }
     } catch (error: any) {
-      // Show funny error modal instead of alert
-      const funnyError = getOTPErrorMessage(error.message || '');
-      setErrorMessage(funnyError);
+      console.error('❌ [OTP-VERIFY] Verification failed:', error);
+      
+      // Show error modal with icon
+      const errorDetails = getOTPErrorMessage(error.message || '');
+      setErrorMessage(errorDetails);
       setShowErrorModal(true);
       
       // Clear OTP and focus first input
       setOtp(['', '', '', '', '', '']);
-      inputRefs.current[0]?.focus();
+      setTimeout(() => {
+        inputRefs.current[0]?.focus();
+      }, 100);
     } finally {
       setIsLoading(false);
+      console.log('🏁 [OTP-VERIFY] Verification process complete');
     }
   };
 
@@ -268,46 +296,15 @@ export default function PhoneOTPScreen() {
         </View>
       </View>
 
-      {/* Error Modal - Funny OTP Error Messages */}
-      <Modal
+      {/* Error Modal - Using AlertModal */}
+      <AlertModal
         visible={showErrorModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setShowErrorModal(false)}
-      >
-        <View style={styles.errorModalOverlay}>
-          <View style={styles.errorModalContent}>
-            <View style={styles.errorEmojiContainer}>
-              <Text style={styles.errorEmoji}>{errorMessage.emoji}</Text>
-            </View>
-            
-            <View style={styles.errorModalHeader}>
-              <Text style={styles.errorModalTitle}>{errorMessage.title}</Text>
-            </View>
-            
-            <View style={styles.errorModalBody}>
-              <Text style={styles.errorModalText}>
-                {errorMessage.message}
-              </Text>
-            </View>
-            
-            <LinearGradient
-              colors={['#EC4899', '#8B5CF6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.errorModalButton}
-            >
-              <TouchableOpacity 
-                style={styles.errorModalButtonInner}
-                onPress={() => setShowErrorModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.errorModalButtonText}>Got it!</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowErrorModal(false)}
+        icon={errorMessage.icon}
+        title={errorMessage.title}
+        message={errorMessage.message}
+        primaryButtonText="Got it!"
+      />
     </SafeAreaView>
   );
 }
@@ -465,71 +462,5 @@ const styles = StyleSheet.create({
   continueButtonDisabled: {
     borderColor: Colors.border,
     backgroundColor: Colors.transparent,
-  },
-  // Error Modal Styles
-  errorModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.lg,
-  },
-  errorModalContent: {
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.xl,
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  errorEmojiContainer: {
-    alignItems: 'center',
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xs,
-  },
-  errorEmoji: {
-    fontSize: normalize(56),
-  },
-  errorModalHeader: {
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  errorModalTitle: {
-    fontSize: normalize(18),
-    fontWeight: FontWeights.bold,
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  errorModalBody: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  errorModalText: {
-    fontSize: normalize(15),
-    color: Colors.text,
-    lineHeight: normalize(22),
-    textAlign: 'center',
-  },
-  errorModalButton: {
-    borderRadius: BorderRadius.full,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.lg,
-    overflow: 'hidden',
-  },
-  errorModalButtonInner: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  errorModalButtonText: {
-    fontSize: normalize(16),
-    fontWeight: FontWeights.semibold,
-    color: Colors.background,
   },
 });

@@ -3,8 +3,8 @@
  * Main profile screen showing all information about a date
  */
 
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Modal, Text, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Modal, Text, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
@@ -12,24 +12,83 @@ import { Archive, Trash } from 'iconsax-react-native';
 import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius, Shadows } from '@/constants/theme';
+import { useAuthStore } from '@/store/authStore';
+import { getDateProfileById } from '@/lib/dateProfiles';
+import { DateProfileData } from '@/types/dateProfile';
+import { fetchFavorites, addFavorite, deleteFavorite, Favorite } from '@/lib/favorites';
 
 // Components
 import ProfileHeader from '@/components/date-profile/ProfileHeader';
 import CategoryGridCard from '@/components/date-profile/CategoryGridCard';
-import InterestsCard from '@/components/date-profile/InterestsCard';
+import InterestsCard from '@/components/date-profile/InterestsCardNew';
+import FavoritesCard from '@/components/date-profile/FavoritesCard';
 import QuickNotesCard from '@/components/date-profile/QuickNotesCard';
 import PhotoGallery from '@/components/date-profile/PhotoGallery';
 
 // Data
-import { getDateProfile, getProfileCategories } from '@/data/dateProfileData';
+import { getProfileCategories } from '@/data/dateProfileData';
 
 export default function DateProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const user = useAuthStore((state) => state.user);
   
-  // Get profile data (in production, fetch from API)
-  const profile = getDateProfile(id as string);
+  // State
+  const [profile, setProfile] = useState<DateProfileData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  
   const categories = getProfileCategories();
+  
+  // Fetch profile data from database
+  useEffect(() => {
+    async function loadProfile() {
+      if (!user?.id || !id) {
+        setIsLoading(false);
+        return;
+      }
+      
+      try {
+        setIsLoading(true);
+        const { success, data, error: fetchError } = await getDateProfileById(id as string, user.id);
+        
+        if (success && data) {
+          setProfile(data);
+          setError(null);
+          
+          // Fetch favorites for this profile
+          loadFavorites(id as string);
+        } else {
+          setError(fetchError || 'Failed to load profile');
+        }
+      } catch (err: any) {
+        console.error('Error loading profile:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    loadProfile();
+  }, [id, user?.id]);
+  
+  // Load favorites from database
+  const loadFavorites = async (profileId: string) => {
+    try {
+      setFavoritesLoading(true);
+      const { success, data } = await fetchFavorites(profileId);
+      
+      if (success && data) {
+        setFavorites(data);
+      }
+    } catch (err) {
+      console.error('Error loading favorites:', err);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
 
   // State for modals
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -88,6 +147,72 @@ export default function DateProfileScreen() {
     console.log('Edit interests');
     // TODO: Open interests edit modal
   };
+  
+  const handleAddFavorite = async (favorite: {id: string; icon: string; category: string; value: string}) => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    if (!profile?.id) return;
+    
+    try {
+      // Save to database
+      const { success, data } = await addFavorite({
+        profile_id: profile.id,
+        icon: favorite.icon,
+        category: favorite.category,
+        value: favorite.value,
+      });
+      
+      if (success && data) {
+        // Add to local state
+        setFavorites([...favorites, data]);
+        
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+    } catch (err) {
+      console.error('Error adding favorite:', err);
+    }
+  };
+  
+  const handleRemoveFavorite = async (favoriteId: string) => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    try {
+      // Delete from database
+      const { success } = await deleteFavorite(favoriteId);
+      
+      if (success) {
+        // Remove from local state
+        setFavorites(favorites.filter(f => f.id !== favoriteId));
+        
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+    } catch (err) {
+      console.error('Error removing favorite:', err);
+    }
+  };
+
+  const handleAddPhoto = (photoUris: string | string[]) => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    const uris = Array.isArray(photoUris) ? photoUris : [photoUris];
+    
+    console.log('📸 [DateProfile] Add photos:', {
+      count: uris.length,
+      uris
+    });
+    
+    // TODO: Upload photos to Supabase storage and save to database
+  };
 
   const handleAddNote = () => {
     if (Platform.OS === 'ios') {
@@ -102,16 +227,37 @@ export default function DateProfileScreen() {
     // TODO: Open edit note modal
   };
 
-  const handleAddPhoto = () => {
-    console.log('Add photo');
-    // TODO: Open photo picker
-  };
-
   const handleViewPhoto = (photoIndex: number) => {
     console.log('View photo:', photoIndex);
     // TODO: Open photo viewer
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.purple} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  // Error state
+  if (error || !profile) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error || 'Profile not found'}</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Fixed Navigation */}
@@ -150,10 +296,17 @@ export default function DateProfileScreen() {
         <View style={styles.content}>
           {/* Interests Card */}
           <InterestsCard interests={profile.interests} onEdit={handleEditInterests} />
+          
+          {/* Favorites Card */}
+          <FavoritesCard
+            favorites={favorites}
+            onAdd={handleAddFavorite}
+            onRemove={handleRemoveFavorite}
+          />
 
           {/* Quick Notes Card */}
           <QuickNotesCard
-            notes={profile.notes}
+            profileId={profile.id}
             onAddNote={handleAddNote}
             onEditNote={handleEditNote}
           />
@@ -485,5 +638,39 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: FontWeights.semibold,
     color: Colors.purple,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  loadingText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  errorText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  backButton: {
+    backgroundColor: Colors.purple,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+  },
+  backButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textWhite,
   },
 });

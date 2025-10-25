@@ -11,6 +11,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import DateProfileIntroModal from '@/components/DateProfileIntroModal';
 import { useToast } from '@/contexts/ToastContext';
 import { useDateProfileStore } from '@/store/dateProfileStore';
+import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
 import { useAuthStore } from '@/store/authStore';
 import { fetchUserDateProfiles } from '@/lib/dateProfiles';
 
@@ -133,6 +134,8 @@ export default function HomeScreen() {
 
   const handleContinueToFlow = () => {
     setShowIntroModal(false);
+    // Reset the store to start fresh profile (not resume old draft)
+    useDateProfileCreationStore.getState().reset();
     router.push('/date-profile/basic-info');
   };
 

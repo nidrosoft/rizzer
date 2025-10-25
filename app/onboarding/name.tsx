@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight, User } from 'iconsax-react-native';
@@ -14,7 +14,7 @@ export default function NameScreen() {
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
     stepNumber: 1,
-    nextRoute: '/onboarding/dateOfBirth',
+    nextRoute: '/onboarding/email',
     validateData: () => firstName.trim().length >= 2,
     getDataToSave: () => ({
       name: lastName.trim() 
@@ -68,7 +68,7 @@ export default function NameScreen() {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Last name"
+            placeholder="Last name (optional)"
             placeholderTextColor={Colors.textLight}
             value={lastName}
             onChangeText={setLastName}
@@ -76,12 +76,11 @@ export default function NameScreen() {
           />
           <View style={styles.underline} />
           <Text style={styles.helperText}>
-            Last name is optional, and only shared with matches.{' '}
-            <Text style={styles.helperLink}>Why?</Text>
+            Your first name is all we need to get started
           </Text>
         </View>
 
-        {/* Continue Button - Right after inputs */}
+        {/* Continue Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.continueButton, (!isValid || isSaving) && styles.continueButtonDisabled]}

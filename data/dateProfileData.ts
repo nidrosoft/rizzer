@@ -178,10 +178,22 @@ export const calculateDaysTogether = (startDate: Date): number => {
 
 export const getRelationshipStatusLabel = (status: string): string => {
   const labels: { [key: string]: string } = {
-    talking: 'Getting to Know',
-    dating: 'Dating',
-    exclusive: 'In a Relationship',
-    engaged: 'Engaged',
+    'Just Met': 'Just Met',
+    'Talking': 'Talking',
+    'Dating': 'Dating',
+    'Serious': 'Serious',
+    'Engaged': 'Engaged',
+    'Married': 'Married',
+    'Divorced': 'Divorced',
+    // Legacy values (lowercase)
+    'just met': 'Just Met',
+    'talking': 'Talking',
+    'dating': 'Dating',
+    'serious': 'Serious',
+    'engaged': 'Engaged',
+    'married': 'Married',
+    'divorced': 'Divorced',
+    'exclusive': 'Serious',
   };
-  return labels[status] || 'Dating';
+  return labels[status] || status || 'Dating';
 };

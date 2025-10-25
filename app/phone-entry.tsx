@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ScrollView, FlatList, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Call, ArrowRight, CloseSquare, ArrowDown2, TickCircle } from 'iconsax-react-native';
+import { Call, ArrowRight, CloseSquare, ArrowDown2, InfoCircle, Danger, Timer, TickCircle } from 'iconsax-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
 import { normalize } from '@/utils/responsive';
 import { sendOTP } from '@/lib/auth';
-import { COUNTRIES, Country, sanitizePhoneNumber, removeLeadingZeros, toE164Format, validatePhoneNumber, formatPhoneDisplay } from '@/utils/phoneNumber';
+import { COUNTRIES, Country, sanitizePhoneNumber, removeLeadingZeros, toE164Format, validatePhoneNumber } from '@/utils/phoneNumber';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function PhoneEntryScreen() {
   const router = useRouter();
@@ -18,7 +19,11 @@ export default function PhoneEntryScreen() {
   const [validationError, setValidationError] = useState<string>('');
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState({ title: '', message: '', emoji: '' });
+  const [errorMessage, setErrorMessage] = useState<{ title: string; message: string; icon: React.ReactNode }>({ 
+    title: '', 
+    message: '', 
+    icon: null 
+  });
 
   // Handle phone number input with proper sanitization
   const handlePhoneChange = (text: string) => {
@@ -36,10 +41,28 @@ export default function PhoneEntryScreen() {
   const getFunnyErrorMessage = (error: string) => {
     const errorLower = error.toLowerCase();
     
+    // Twilio daily message limit (63038 error)
+    if (errorLower.includes('exceeded the') && errorLower.includes('daily messages limit')) {
+      return {
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
+        title: 'Oops! Daily limit reached',
+        message: 'Looks like you\'ve hit your limit for authentication code requests today. Please try again tomorrow!'
+      };
+    }
+    
+    // Twilio rate limit (general)
+    if (errorLower.includes('63038') || (errorLower.includes('exceeded') && errorLower.includes('limit'))) {
+      return {
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
+        title: 'Oops! Daily limit reached',
+        message: 'You\'ve requested the maximum authentication codes for today. Try again in a few hours or tomorrow!'
+      };
+    }
+    
     // Too many digits
     if (phoneNumber.length > selectedCountry.maxLength) {
       return {
-        emoji: '🤔',
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
         title: 'Whoa, that\'s a long number!',
         message: `Phone numbers in ${selectedCountry.name} are usually ${selectedCountry.maxLength} digits. Looks like you added a few extra! Double-check and try again.`
       };
@@ -48,7 +71,7 @@ export default function PhoneEntryScreen() {
     // Too few digits
     if (phoneNumber.length < selectedCountry.minLength) {
       return {
-        emoji: '🧐',
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
         title: 'Hmm, something\'s missing...',
         message: `Phone numbers in ${selectedCountry.name} need at least ${selectedCountry.minLength} digits. You're almost there!`
       };
@@ -57,7 +80,7 @@ export default function PhoneEntryScreen() {
     // Invalid format from Twilio
     if (errorLower.includes('not a valid phone number') || errorLower.includes('invalid')) {
       return {
-        emoji: '😅',
+        icon: <Danger size={24} color="#FF6B6B" variant="Bold" />,
         title: 'Oops! That doesn\'t look right',
         message: `We couldn't recognize this as a valid ${selectedCountry.name} phone number. Mind double-checking it?`
       };
@@ -66,16 +89,16 @@ export default function PhoneEntryScreen() {
     // Network or server error
     if (errorLower.includes('network') || errorLower.includes('connection')) {
       return {
-        emoji: '📡',
+        icon: <Danger size={24} color="#FF6B6B" variant="Bold" />,
         title: 'Connection hiccup!',
         message: 'Looks like the internet gremlins are at it again. Check your connection and give it another shot!'
       };
     }
     
-    // Rate limit
+    // Rate limit (user-specific)
     if (errorLower.includes('rate') || errorLower.includes('too many')) {
       return {
-        emoji: '⏰',
+        icon: <Timer size={24} color={Colors.purple} variant="Bold" />,
         title: 'Slow down there, speedy!',
         message: 'You\'re trying too fast! Take a breather and try again in a minute.'
       };
@@ -83,7 +106,7 @@ export default function PhoneEntryScreen() {
     
     // Default funny error
     return {
-      emoji: '🤷‍♂️',
+      icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
       title: 'Well, this is awkward...',
       message: 'Something unexpected happened. But hey, even the best apps have their moments! Try again?'
     };
@@ -106,24 +129,50 @@ export default function PhoneEntryScreen() {
     try {
       // Format phone number in E.164 format
       const e164Number = toE164Format(phoneNumber, selectedCountry);
-      console.log('📱 Sending OTP to E.164 format:', e164Number);
+      console.log('📱 [SIGN-UP] Sending OTP to:', e164Number);
 
       // Send OTP via Supabase
       const { success, error } = await sendOTP(e164Number);
+      
+      console.log('📬 [SIGN-UP] OTP Send Result:', { success, error });
 
-      if (success) {
+      // Define errors that should still allow navigation (SMS was sent despite error)
+      const allowNavigationErrors = [
+        'user already registered',
+        'user exists',
+        'already exists',
+        'rate limit',
+        'too many requests',
+        'timeout',
+        'exceeded the',
+        'daily messages limit',
+        '63038',
+      ];
+
+      // Check if we should navigate despite error
+      // This handles cases where Twilio sends SMS but returns error (like daily limit)
+      const shouldNavigate = success || (
+        error && allowNavigationErrors.some(
+          err => error.toLowerCase().includes(err)
+        )
+      );
+
+      if (shouldNavigate) {
+        console.log('✅ [SIGN-UP] Navigating to OTP screen (SMS sent)');
         // Navigate to OTP screen
         router.push({
           pathname: '/phone-otp',
           params: { phoneNumber: e164Number }
         });
       } else {
-        // Show funny error modal instead of alert
+        console.log('❌ [SIGN-UP] Showing error modal:', error);
+        // Show funny error modal for critical errors only
         const funnyError = getFunnyErrorMessage(error || '');
         setErrorMessage(funnyError);
         setShowErrorModal(true);
       }
     } catch (err: any) {
+      console.error('❌ [SIGN-UP] Exception:', err);
       const funnyError = getFunnyErrorMessage(err.message || '');
       setErrorMessage(funnyError);
       setShowErrorModal(true);
@@ -147,11 +196,12 @@ export default function PhoneEntryScreen() {
 
   return (
     <>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Close Button */}
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-          <CloseSquare size={28} color={Colors.text} variant="Outline" />
-        </TouchableOpacity>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          {/* Close Button */}
+          <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+            <CloseSquare size={28} color={Colors.text} variant="Outline" />
+          </TouchableOpacity>
 
         {/* Logo */}
         <View style={styles.logoContainer}>
@@ -207,6 +257,12 @@ export default function PhoneEntryScreen() {
           Message and data rates may apply.
         </Text>
 
+        {/* Disclosure Text */}
+        <Text style={styles.disclosureText}>
+          By entering your number, you agree to get texts about your account, like verification codes, account alerts, reminders, and updates (e.g. Likes, matches, unread messages).{'\n\n'}
+          Message frequency varies and data rates may apply. Reply STOP to cancel.
+        </Text>
+
         {/* Bottom Section - Help Text and Continue Button */}
         <View style={styles.bottomSection}>
           <TouchableOpacity 
@@ -233,7 +289,8 @@ export default function PhoneEntryScreen() {
             )}
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </TouchableWithoutFeedback>
 
       {/* Info Modal - What if my number changes? */}
       <Modal
@@ -289,46 +346,15 @@ export default function PhoneEntryScreen() {
         </View>
       </Modal>
 
-      {/* Error Modal - Funny Error Messages */}
-      <Modal
+      {/* Error Modal */}
+      <AlertModal
         visible={showErrorModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setShowErrorModal(false)}
-      >
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalContent}>
-            <View style={styles.errorEmojiContainer}>
-              <Text style={styles.errorEmoji}>{errorMessage.emoji}</Text>
-            </View>
-            
-            <View style={styles.infoModalHeader}>
-              <Text style={styles.infoModalTitle}>{errorMessage.title}</Text>
-            </View>
-            
-            <View style={styles.infoModalBody}>
-              <Text style={styles.infoModalText}>
-                {errorMessage.message}
-              </Text>
-            </View>
-            
-            <LinearGradient
-              colors={['#EC4899', '#8B5CF6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.infoModalButton}
-            >
-              <TouchableOpacity 
-                style={styles.infoModalButtonInner}
-                onPress={() => setShowErrorModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.infoModalButtonText}>Got it, let me fix that!</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowErrorModal(false)}
+        icon={errorMessage.icon}
+        title={errorMessage.title}
+        message={errorMessage.message}
+        primaryButtonText="Sounds good, I'll try later"
+      />
 
       {/* Country Selector Modal */}
       <Modal
@@ -460,6 +486,12 @@ const styles = StyleSheet.create({
     fontSize: normalize(14),
     color: Colors.textSecondary,
     lineHeight: normalize(20),
+    marginBottom: Spacing.md,
+  },
+  disclosureText: {
+    fontSize: normalize(12),
+    color: Colors.textLight,
+    lineHeight: normalize(18),
     marginBottom: Spacing.xl,
   },
   bottomSection: {
@@ -554,8 +586,8 @@ const styles = StyleSheet.create({
   infoModalContent: {
     backgroundColor: Colors.background,
     borderRadius: BorderRadius.xl,
-    width: '100%',
-    maxWidth: 400,
+    width: '85%',
+    maxWidth: 340,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -620,14 +652,5 @@ const styles = StyleSheet.create({
     fontSize: normalize(16),
     fontWeight: FontWeights.semibold,
     color: Colors.background,
-  },
-  // Error Modal Styles
-  errorEmojiContainer: {
-    alignItems: 'center',
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xs,
-  },
-  errorEmoji: {
-    fontSize: normalize(56),
   },
 });

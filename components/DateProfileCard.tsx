@@ -18,6 +18,14 @@ interface DateProfileCardProps {
 export default function DateProfileCard({ profile, onPress }: DateProfileCardProps) {
   // Placeholder image URL
   const placeholderImage = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
+  
+  // Debug logging
+  console.log('📇 [DateProfileCard] Profile data:', {
+    name: profile.name,
+    age: profile.age,
+    profession: profile.profession,
+    photo: profile.photo ? 'has photo' : 'no photo'
+  });
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.95}>

@@ -11,15 +11,58 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius, Shadows } from '@/constants/theme';
 import { InterestsCardProps } from '@/types/dateProfile';
 
+// Categories from interests screen
+const INTEREST_CATEGORIES = [
+  {
+    name: 'Activities',
+    interests: ['Dancing', 'Yoga', 'Hiking', 'Camping', 'Skiing', 'Surfing', 'Rock climbing', 'Cycling']
+  },
+  {
+    name: 'Food & Drink',
+    interests: ['Cooking', 'Baking', 'Wine tasting', 'Coffee', 'Foodie', 'Vegetarian', 'Vegan', 'BBQ']
+  },
+  {
+    name: 'Entertainment',
+    interests: ['Movies', 'Theater', 'Concerts', 'Festivals', 'Comedy shows', 'Museums', 'Art galleries', 'Gaming']
+  },
+  {
+    name: 'Music',
+    interests: ['Rock', 'Pop', 'Hip Hop', 'Jazz', 'Classical', 'Country', 'EDM', 'R&B']
+  },
+  {
+    name: 'Sports',
+    interests: ['Football', 'Basketball', 'Tennis', 'Golf', 'Soccer', 'Baseball', 'Swimming', 'Running']
+  },
+  {
+    name: 'Creative',
+    interests: ['Photography', 'Writing', 'Painting', 'Drawing', 'Crafts', 'Design', 'Fashion', 'DIY']
+  },
+  {
+    name: 'Lifestyle',
+    interests: ['Travel', 'Reading', 'Meditation', 'Volunteering', 'Sustainability', 'Pets', 'Gardening', 'Astrology']
+  },
+];
+
 export default function InterestsCard({ interests, onEdit }: InterestsCardProps) {
   const [showModal, setShowModal] = useState(false);
-  const [hobbies, setHobbies] = useState(interests.hobbies);
-  const [newHobby, setNewHobby] = useState('');
-  const [favoriteColor, setFavoriteColor] = useState(interests.favoriteThings.color || '');
-  const [favoriteFlower, setFavoriteFlower] = useState(interests.favoriteThings.flower || '');
-  const [favoriteFood, setFavoriteFood] = useState(interests.favoriteThings.food.join(', '));
-  const [personality, setPersonality] = useState(interests.personality);
-  const [newTrait, setNewTrait] = useState('');
+  
+  // Organize hobbies by category
+  const organizeHobbiesByCategory = () => {
+    const organized: { [key: string]: string[] } = {};
+    
+    INTEREST_CATEGORIES.forEach(category => {
+      const categoryHobbies = interests.hobbies.filter(hobby => 
+        category.interests.includes(hobby)
+      );
+      if (categoryHobbies.length > 0) {
+        organized[category.name] = categoryHobbies;
+      }
+    });
+    
+    return organized;
+  };
+  
+  const categorizedHobbies = organizeHobbiesByCategory();
 
   const handleEdit = () => {
     if (Platform.OS === 'ios') {
@@ -88,47 +131,26 @@ export default function InterestsCard({ interests, onEdit }: InterestsCardProps)
         </TouchableOpacity>
       </View>
 
-      {/* Hobbies */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Hobbies</Text>
-        <View style={styles.tagsContainer}>
-          {interests.hobbies.map((hobby, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{hobby}</Text>
+      {/* Interests by Category */}
+      {Object.keys(categorizedHobbies).length > 0 ? (
+        Object.entries(categorizedHobbies).map(([categoryName, categoryHobbies]) => (
+          <View key={categoryName} style={styles.section}>
+            <Text style={styles.sectionLabel}>{categoryName}</Text>
+            <View style={styles.tagsContainer}>
+              {categoryHobbies.map((hobby, index) => (
+                <View key={index} style={styles.tag}>
+                  <Text style={styles.tagText}>{hobby}</Text>
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
+        ))
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No interests added yet</Text>
+          <Text style={styles.emptySubtext}>Tap the edit button to add interests</Text>
         </View>
-      </View>
-
-      {/* Favorite Things */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Favorites</Text>
-        <View style={styles.favoritesList}>
-          {interests.favoriteThings.color && (
-            <Text style={styles.favoriteItem}>🎨 Color: {interests.favoriteThings.color}</Text>
-          )}
-          {interests.favoriteThings.flower && (
-            <Text style={styles.favoriteItem}>🌸 Flower: {interests.favoriteThings.flower}</Text>
-          )}
-          {interests.favoriteThings.food.length > 0 && (
-            <Text style={styles.favoriteItem}>
-              🍽️ Food: {interests.favoriteThings.food.join(', ')}
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {/* Personality */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Personality</Text>
-        <View style={styles.tagsContainer}>
-          {interests.personality.map((trait, index) => (
-            <View key={index} style={[styles.tag, styles.personalityTag]}>
-              <Text style={styles.tagText}>{trait}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      )}
     </View>
 
       {/* Edit Modal */}

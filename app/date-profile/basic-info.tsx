@@ -5,44 +5,61 @@ import * as Haptics from 'expo-haptics';
 import { User } from 'iconsax-react-native';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
 
 export default function BasicInfoScreen() {
   const router = useRouter();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [age, setAge] = useState('');
+  const { draft, updateDraft, saveDraft, setCurrentStep } = useDateProfileCreationStore();
+  
+  const [firstName, setFirstName] = useState(draft.first_name || '');
+  const [lastName, setLastName] = useState(draft.last_name || '');
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    // TODO: Save data and navigate to next screen
-    router.push('/date-profile/location');
+    
+    // Update draft
+    updateDraft({
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+    });
+    
+    // Save to database
+    await saveDraft();
+    
+    // Update step and navigate
+    setCurrentStep(1);
+    router.push('/date-profile/date-of-birth');
   };
 
   const handleCancel = () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    // Discard all changes and go back to home
     router.back();
   };
 
-  const handleSaveAsDraft = () => {
+  const handleSaveAsDraft = async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    // TODO: Save current progress as draft
-    console.log('Saving as draft:', { firstName, lastName, age });
+    
+    updateDraft({
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+    });
+    
+    await saveDraft();
     router.back();
   };
 
-  const canContinue = firstName.trim().length > 0 && age.trim().length > 0;
+  const canContinue = firstName.trim().length > 0;
 
   return (
     <OnboardingLayout
       currentStep={1}
-      totalSteps={8}
+      totalSteps={13}
       icon={User}
       title="Basic Information"
       helperText="Help us know who they are for personalized suggestions"
@@ -76,19 +93,6 @@ export default function BasicInfoScreen() {
             onChangeText={setLastName}
             autoCapitalize="words"
             autoCorrect={false}
-          />
-          <View style={styles.underline} />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Age"
-            placeholderTextColor={Colors.textLight}
-            value={age}
-            onChangeText={setAge}
-            keyboardType="number-pad"
-            maxLength={2}
           />
           <View style={styles.underline} />
         </View>

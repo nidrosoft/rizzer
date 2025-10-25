@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   goalsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.md,
+    justifyContent: 'space-between',
     paddingBottom: Spacing.xl,
   },
   goalCard: {
@@ -81,6 +81,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 160,
     justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
   selectedCard: {
     backgroundColor: Colors.purple,

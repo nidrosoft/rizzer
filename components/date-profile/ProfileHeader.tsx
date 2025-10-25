@@ -13,6 +13,14 @@ import { DateProfileHeaderProps } from '@/types/dateProfile';
 import { getRelationshipStatusLabel } from '@/data/dateProfileData';
 
 export default function ProfileHeader({ profile, onBack, onEdit }: DateProfileHeaderProps) {
+  // Placeholder image if no photo
+  const placeholderImage = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
+  const photoUrl = profile.basicInfo.photo || placeholderImage;
+  
+  // Debug logging
+  console.log('📸 [ProfileHeader] Photo URL:', photoUrl);
+  console.log('👔 [ProfileHeader] Profession:', profile.basicInfo.profession);
+  
   const handleBack = () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -40,7 +48,12 @@ export default function ProfileHeader({ profile, onBack, onEdit }: DateProfileHe
             end={{ x: 1, y: 1 }}
           >
             <View style={styles.photoInner}>
-              <Image source={{ uri: profile.basicInfo.photo }} style={styles.photo} />
+              <Image 
+                source={{ uri: photoUrl }} 
+                style={styles.photo}
+                defaultSource={{ uri: placeholderImage }}
+                onError={(e) => console.error('❌ [ProfileHeader] Image load error:', e.nativeEvent.error)}
+              />
             </View>
           </LinearGradient>
         </View>
@@ -50,7 +63,13 @@ export default function ProfileHeader({ profile, onBack, onEdit }: DateProfileHe
           <Text style={styles.name}>
             {profile.basicInfo.name}, {profile.basicInfo.age}
           </Text>
-          <Text style={styles.profession}>{profile.basicInfo.profession}</Text>
+          
+          {/* Profession Text */}
+          {profile.basicInfo.profession && (
+            <Text style={styles.profession}>{profile.basicInfo.profession}</Text>
+          )}
+          
+          {/* Status Badge */}
           <LinearGradient
             colors={[Colors.gradientStart, Colors.gradientEnd]}
             start={{ x: 0, y: 0 }}

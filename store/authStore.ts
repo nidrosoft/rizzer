@@ -20,6 +20,7 @@ export interface User {
   name: string;
   email?: string;
   avatar?: string;
+  avatar_url?: string;
   bio?: string;
   dateOfBirth?: string;
   gender?: 'male' | 'female' | 'other';
@@ -187,20 +188,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .from('users')
           .select('*')
           .eq('id', data.user.id)
-          .single();
+          .single() as { data: any; error: any };
 
         if (profileError && profileError.code === 'PGRST116') {
           // User doesn't exist - create profile
-          const { data: newProfile } = await supabase
+          console.log('📝 Creating new user profile for:', data.user.id);
+          
+          const { data: newProfile, error: insertError } = await supabase
             .from('users')
             .insert({
               id: data.user.id,
               phone: phone,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             })
             .select()
-            .single();
+            .single() as { data: any; error: any };
+
+          if (insertError) {
+            console.error('❌ Failed to create user profile:', insertError);
+            throw new Error(`Failed to create user profile: ${insertError.message}`);
+          }
 
           if (newProfile) {
+            console.log('✅ User profile created successfully:', newProfile.id);
             set({
               user: {
                 id: newProfile.id,
@@ -211,7 +222,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               isAuthenticated: true,
               isLoading: false,
             });
+          } else {
+            throw new Error('Failed to create user profile - no data returned');
           }
+        } else if (profileError) {
+          // Other database error - but user might exist, use auth data
+          console.warn('⚠️ Database error but user authenticated:', profileError);
+          set({
+            user: {
+              id: data.user.id,
+              phone: phone,
+              name: '',
+            },
+            token: data.session?.access_token || null,
+            isAuthenticated: true,
+            isLoading: false,
+          });
         } else if (profile) {
           // User exists - update state
           set({
@@ -226,6 +252,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               gender: profile.gender as 'male' | 'female' | 'other' | undefined,
               interests: profile.interests || undefined,
               photos: profile.photos as string[] || undefined,
+            },
+            token: data.session?.access_token || null,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          // No profile and no error - shouldn't happen but handle it
+          console.warn('⚠️ No profile found but no error - using auth data');
+          set({
+            user: {
+              id: data.user.id,
+              phone: phone,
+              name: '',
             },
             token: data.session?.access_token || null,
             isAuthenticated: true,
@@ -249,28 +288,47 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      // Sign out from Supabase
+      console.log('🚪 [LOGOUT] Starting logout process...');
+      
+      // 1. Sign out from Supabase
       await auth.signOut();
+      console.log('✅ [LOGOUT] Supabase sign out complete');
 
-      // Clear state
+      // 2. Clear all AsyncStorage keys
+      await AsyncStorage.multiRemove([
+        '@rizzers_auth_token',
+        '@rizzers_user_session',
+        '@rizzers_user_data',
+      ]);
+      console.log('✅ [LOGOUT] AsyncStorage cleared');
+
+      // 3. Sign out with local scope to clear client cache
+      await supabase.auth.signOut({ scope: 'local' });
+      console.log('✅ [LOGOUT] Supabase cache cleared');
+
+      // 4. Clear state completely
       set({
         user: null,
         token: null,
         isAuthenticated: false,
+        isInitialized: false, // Reset initialization flag
         isLoading: false,
       });
 
-      console.log('✅ Logout successful');
+      console.log('✅ [LOGOUT] Logout successful - all state cleared');
     } catch (error) {
-      // Clear state even if API fails
+      console.error('❌ [LOGOUT] Error during logout:', error);
+      
+      // Force clear state even if API fails
       set({
         user: null,
         token: null,
         isAuthenticated: false,
+        isInitialized: false,
         isLoading: false,
       });
-
-      console.error('Logout error:', error);
+      
+      console.log('⚠️ [LOGOUT] Forced state clear after error');
     }
   },
 

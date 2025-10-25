@@ -33,6 +33,13 @@ export default function LandingScreen() {
     alert('Google Sign-In coming soon! Please use phone number for now.');
   };
 
+  const handleSignIn = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    router.push('/phone-signin');
+  };
+
   return (
     <View style={styles.container}>
       {/* Background Video - Full Screen */}
@@ -113,7 +120,7 @@ export default function LandingScreen() {
               </TouchableOpacity>
 
               {/* Already Have Account */}
-              <TouchableOpacity style={styles.loginLink}>
+              <TouchableOpacity style={styles.loginLink} onPress={handleSignIn}>
                 <Text style={styles.loginText}>Already have an account? </Text>
                 <Text style={styles.loginTextBold}>Sign In</Text>
               </TouchableOpacity>

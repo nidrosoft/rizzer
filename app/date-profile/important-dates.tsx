@@ -6,11 +6,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Calendar } from 'iconsax-react-native';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
 
 export default function ImportantDatesScreen() {
   const router = useRouter();
-  const [firstDate, setFirstDate] = useState<Date | undefined>(undefined);
-  const [birthday, setBirthday] = useState<Date | undefined>(undefined);
+  const { draft, updateDraft, saveDraft, setCurrentStep } = useDateProfileCreationStore();
+  
+  const [firstDate, setFirstDate] = useState<Date | undefined>(draft.start_date ? new Date(draft.start_date) : undefined);
+  const [birthday, setBirthday] = useState<Date | undefined>(draft.date_of_birth ? new Date(draft.date_of_birth) : undefined);
   const [anniversary, setAnniversary] = useState<Date | undefined>(undefined);
   const [showPicker, setShowPicker] = useState<'firstDate' | 'birthday' | 'anniversary' | null>(null);
 
@@ -30,33 +33,54 @@ export default function ImportantDatesScreen() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    
+    if (firstDate) {
+      updateDraft({ start_date: firstDate.toISOString().split('T')[0] });
+    }
+    
+    await saveDraft();
+    setCurrentStep(12);
     router.push('/date-profile/notes');
   };
 
-  const handleSkip = () => {
+  const handleCancel = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/date-profile/notes');
+    router.back();
+  };
+
+  const handleSaveAsDraft = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
+    if (firstDate) {
+      updateDraft({ start_date: firstDate.toISOString().split('T')[0] });
+    }
+    
+    await saveDraft();
+    router.back();
   };
 
   const hasAnyDate = !!(firstDate || birthday || anniversary);
 
   return (
     <OnboardingLayout
-      currentStep={6}
-      totalSteps={8}
+      currentStep={12}
+      totalSteps={13}
       icon={Calendar}
       title="Important dates"
       helperText="Never forget special moments - we'll remind you when they're coming up"
       onContinue={handleContinue}
       canContinue={hasAnyDate}
-      showSkip={true}
-      onSkip={handleSkip}
+      showSkip={false}
+      onCancel={handleCancel}
+      onSaveAsDraft={handleSaveAsDraft}
     >
       <ScrollView 
         style={styles.scrollView}
@@ -139,9 +163,11 @@ export default function ImportantDatesScreen() {
           </View>
         )}
 
-        <Text style={styles.note}>
-          💡 Tip: You can add or edit these dates anytime from the profile
-        </Text>
+        <View style={styles.tipCard}>
+          <Text style={styles.tipText}>
+            💡 Tip: You can add or edit these dates anytime from the profile
+          </Text>
+        </View>
       </ScrollView>
     </OnboardingLayout>
   );
@@ -206,11 +232,18 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.semibold,
     textAlign: 'center',
   },
-  note: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+  tipCard: {
+    backgroundColor: Colors.backgroundGray,
+    borderWidth: 1.5,
+    borderColor: Colors.purple,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
     marginTop: Spacing.xl,
+  },
+  tipText: {
+    fontSize: FontSizes.sm,
+    color: Colors.text,
+    textAlign: 'center',
     lineHeight: 20,
   },
 });

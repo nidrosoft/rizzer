@@ -3,8 +3,8 @@
  * Folder-based organization with 2-column grid layout
  */
 
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Modal, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
@@ -14,17 +14,26 @@ import CategoryActionSheet from '@/components/date-profile/CategoryActionSheet';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { fetchNoteFolders, createNoteFolder, deleteNoteFolder, getTotalNoteCount, NoteFolder } from '@/lib/notes';
+import { useToast } from '@/contexts/ToastContext';
 
 export default function NotesScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { showToast } = useToast();
   const [showAddFolderModal, setShowAddFolderModal] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<any>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showCategoryDeleteModal, setShowCategoryDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [selectedFolderColor, setSelectedFolderColor] = useState('blue');
+  const [selectedFolderColor, setSelectedFolderColor] = useState<NoteFolder['color']>('blue');
+  
+  // Database state
+  const [folders, setFolders] = useState<NoteFolder[]>([]);
+  const [totalNoteCount, setTotalNoteCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleBack = () => {
     if (Platform.OS === 'ios') {
@@ -48,14 +57,77 @@ export default function NotesScreen() {
     router.push(`/date-profile/categories/notes/folder?id=${id}&folderId=${folder.id}`);
   };
 
-  const handleSaveFolder = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  // Load folders and total count on mount
+  useEffect(() => {
+    if (id) {
+      loadFolders();
+      loadTotalCount();
     }
-    // TODO: Save folder to database
-    setShowAddFolderModal(false);
-    setNewFolderName('');
-    setSelectedFolderColor('blue');
+  }, [id]);
+  
+  const loadFolders = async () => {
+    try {
+      setIsLoading(true);
+      const { success, data } = await fetchNoteFolders(id as string);
+      
+      if (success && data) {
+        setFolders(data);
+      }
+    } catch (err) {
+      console.error('Error loading folders:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const loadTotalCount = async () => {
+    try {
+      const { success, count } = await getTotalNoteCount(id as string);
+      
+      if (success) {
+        setTotalNoteCount(count);
+      }
+    } catch (err) {
+      console.error('Error loading total count:', err);
+    }
+  };
+
+  const handleSaveFolder = async () => {
+    if (!newFolderName.trim()) {
+      showToast('Please enter a folder name', 'error');
+      return;
+    }
+    
+    try {
+      const { success, data, error } = await createNoteFolder(
+        id as string,
+        newFolderName.trim(),
+        selectedFolderColor,
+        folders.length
+      );
+      
+      if (success && data) {
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
+        // Add to folders list
+        setFolders([...folders, { ...data, note_count: 0 }]);
+        
+        // Show success toast
+        showToast(`Folder "${newFolderName.trim()}" created!`, 'success');
+        
+        setShowAddFolderModal(false);
+        setNewFolderName('');
+        setSelectedFolderColor('blue');
+      } else {
+        // Show error toast
+        showToast(error || 'Failed to create folder', 'error');
+      }
+    } catch (err: any) {
+      console.error('Error creating folder:', err);
+      showToast(err.message || 'Failed to create folder', 'error');
+    }
   };
 
   const handleMenu = () => {
@@ -75,7 +147,8 @@ export default function NotesScreen() {
     setTimeout(() => setShowArchiveModal(true), 300);
   };
 
-  const confirmCategoryDelete = () => {
+  const confirmCategoryDelete = async () => {
+    // This would delete the entire Notes category - not implemented
     if (Platform.OS === 'ios') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -100,8 +173,15 @@ export default function NotesScreen() {
     orange: { bg: '#FFF4E5', folder: '#FF9800' },
   };
 
-  // Mock folders data with 4 notes each
-  const folders = [
+  // Filter folders by search query
+  const filteredFolders = searchQuery
+    ? folders.filter(folder => 
+        folder.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : folders;
+
+  // Mock folders data for reference (now using database)
+  const mockFolders = [
     { 
       id: '1', 
       name: 'Important', 
@@ -259,45 +339,55 @@ export default function NotesScreen() {
             style={styles.searchInput}
             placeholder="Search folders..."
             placeholderTextColor={Colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
 
         {/* Total Notes Count */}
         <View style={styles.totalCard}>
           <Note size={24} color={Colors.purple} variant="Bold" />
-          <Text style={styles.totalText}>60 Quick Notes</Text>
+          <Text style={styles.totalText}>{totalNoteCount} Quick Notes</Text>
         </View>
 
         {/* Folders Grid (2 columns) */}
-        <View style={styles.foldersGrid}>
-          {folders.map((folder) => {
-            const colors = folderColors[folder.color as keyof typeof folderColors];
-            return (
-              <TouchableOpacity
-                key={folder.id}
-                style={[styles.folderCard, { backgroundColor: colors.bg }]}
-                onPress={() => handleFolderPress(folder)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.folderIcon, { backgroundColor: colors.folder }]}>
-                  <Folder2 size={28} color={Colors.textWhite} variant="Bold" />
-                </View>
-                <Text style={styles.folderName}>{folder.name}</Text>
-                <Text style={styles.folderCount}>{folder.noteCount} Notes</Text>
-                
-                {/* Preview of 4 notes */}
-                <View style={styles.notesPreview}>
-                  {folder.notes.map((note, index) => (
-                    <View key={index} style={styles.notePreviewItem}>
-                      <View style={styles.notePreviewDot} />
-                      <Text style={styles.notePreviewText} numberOfLines={1}>{note}</Text>
-                    </View>
-                  ))}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.purple} />
+            <Text style={styles.loadingText}>Loading folders...</Text>
+          </View>
+        ) : filteredFolders.length > 0 ? (
+          <View style={styles.foldersGrid}>
+            {filteredFolders.map((folder) => {
+              const colors = folderColors[folder.color as keyof typeof folderColors];
+              return (
+                <TouchableOpacity
+                  key={folder.id}
+                  style={[styles.folderCard, { backgroundColor: colors.bg }]}
+                  onPress={() => handleFolderPress(folder)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.folderIcon, { backgroundColor: colors.folder }]}>
+                    <Folder2 size={28} color={Colors.textWhite} variant="Bold" />
+                  </View>
+                  <Text style={styles.folderName}>{folder.name}</Text>
+                  <Text style={styles.folderCount}>{folder.note_count || 0} Notes</Text>
+                  
+                  {/* Note: Preview would require additional query */}
+                  <View style={styles.notesPreview}>
+                    <Text style={styles.notePreviewText}>Tap to view notes</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Folder2 size={48} color={Colors.textSecondary} variant="Outline" />
+            <Text style={styles.emptyTitle}>No folders yet</Text>
+            <Text style={styles.emptyText}>Tap + to create your first folder</Text>
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -545,5 +635,31 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md, 
     fontWeight: FontWeights.semibold, 
     color: Colors.purple 
+  },
+  loadingContainer: {
+    paddingVertical: Spacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
+  },
+  emptyState: {
+    paddingVertical: Spacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+  },
+  emptyText: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
   },
 });

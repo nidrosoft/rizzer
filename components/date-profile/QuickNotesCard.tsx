@@ -3,13 +3,14 @@
  * Displays quick notes with add functionality
  */
 
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal, TextInput, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
 import { Add, Note, Heart, Star1, Danger, InfoCircle, TickCircle } from 'iconsax-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius, Shadows } from '@/constants/theme';
 import { QuickNotesCardProps } from '@/types/dateProfile';
+import { fetchRecentNotes, createNote, fetchNoteFolders, Note as NoteType, NoteFolder } from '@/lib/notes';
 
 type NoteStyle = 'default' | 'important' | 'love' | 'idea' | 'reminder';
 
@@ -21,11 +22,61 @@ const noteStyles = {
   reminder: { icon: TickCircle, color: '#4CAF50', bg: '#E8F5E9', border: '#C8E6C9' },
 };
 
-export default function QuickNotesCard({ notes, onAddNote, onEditNote }: QuickNotesCardProps) {
+interface QuickNotesCardPropsExtended extends Omit<QuickNotesCardProps, 'notes'> {
+  profileId: string;
+}
+
+export default function QuickNotesCard({ profileId, onAddNote, onEditNote }: QuickNotesCardPropsExtended) {
+  const handleCardPress = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onAddNote();
+  };
   const [showModal, setShowModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState<any>(null);
   const [noteContent, setNoteContent] = useState('');
   const [noteStyle, setNoteStyle] = useState<NoteStyle>('default');
+  
+  // Database state
+  const [notes, setNotes] = useState<NoteType[]>([]);
+  const [folders, setFolders] = useState<NoteFolder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load folders and recent notes on mount
+  useEffect(() => {
+    if (profileId) {
+      loadFolders();
+      loadRecentNotes();
+    }
+  }, [profileId]);
+  
+  const loadFolders = async () => {
+    try {
+      const { success, data } = await fetchNoteFolders(profileId);
+      
+      if (success && data) {
+        setFolders(data);
+      }
+    } catch (err) {
+      console.error('Error loading folders:', err);
+    }
+  };
+  
+  const loadRecentNotes = async () => {
+    try {
+      setIsLoading(true);
+      const { success, data } = await fetchRecentNotes(profileId, 5);
+      
+      if (success && data) {
+        setNotes(data);
+      }
+    } catch (err) {
+      console.error('Error loading recent notes:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddNoteClick = () => {
     if (Platform.OS === 'ios') {
@@ -45,16 +96,30 @@ export default function QuickNotesCard({ notes, onAddNote, onEditNote }: QuickNo
     setShowModal(true);
   };
 
-  const handleSave = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-    // TODO: Save to database
-    setShowModal(false);
-    if (selectedNote) {
-      onEditNote(selectedNote.id);
-    } else {
-      onAddNote();
+  const handleSave = async () => {
+    if (!noteContent.trim()) return;
+    
+    try {
+      const { success, data } = await createNote(
+        profileId,
+        noteContent.trim(),
+        { style: noteStyle }
+      );
+      
+      if (success && data) {
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
+        // Add to notes list
+        setNotes([data, ...notes.slice(0, 4)]);
+        
+        setShowModal(false);
+        setNoteContent('');
+        setNoteStyle('default');
+      }
+    } catch (err) {
+      console.error('Error creating note:', err);
     }
   };
 
@@ -67,10 +132,24 @@ export default function QuickNotesCard({ notes, onAddNote, onEditNote }: QuickNo
 
   return (
     <>
-      <View style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={handleCardPress}
+      activeOpacity={0.95}
+    >
       <View style={styles.header}>
-        <Text style={styles.title}>📝 Quick Notes</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddNoteClick}>
+        <View style={styles.titleContainer}>
+          <Text style={styles.emoji}>📝</Text>
+          <Text style={styles.title}>Quick Notes</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleAddNoteClick();
+          }}
+          activeOpacity={0.7}
+        >
           <LinearGradient
             colors={[Colors.gradientStart, Colors.gradientEnd]}
             start={{ x: 0, y: 0 }}
@@ -82,30 +161,27 @@ export default function QuickNotesCard({ notes, onAddNote, onEditNote }: QuickNo
         </TouchableOpacity>
       </View>
 
-      {notes.length > 0 ? (
-        <View style={styles.notesList}>
-          {notes.map((note) => {
-            const style = noteStyles[note.style as NoteStyle] || noteStyles.default;
-            const IconComponent = style.icon;
-            return (
-              <TouchableOpacity
-                key={note.id}
-                style={[
-                  styles.noteItem,
-                  { backgroundColor: style.bg, borderColor: style.border }
-                ]}
-                activeOpacity={0.7}
-                onPress={() => handleEditNote(note)}
-              >
-                <View style={[styles.noteIcon, { backgroundColor: style.color }]}>
-                  <IconComponent size={16} color={Colors.textWhite} variant="Bold" />
-                </View>
-                <Text style={styles.noteText} numberOfLines={3}>
-                  {note.content}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={Colors.purple} />
+        </View>
+      ) : folders.length > 0 ? (
+        <View style={styles.foldersList}>
+          {folders.slice(0, 3).map((folder, index) => (
+            <View key={folder.id}>
+              <View style={styles.folderItem}>
+                <Text style={styles.folderName} numberOfLines={1}>
+                  📁 {folder.name}
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
+                <Text style={styles.folderCount}>
+                  {folder.note_count || 0} {folder.note_count === 1 ? 'note' : 'notes'}
+                </Text>
+              </View>
+              {index < Math.min(folders.length, 3) - 1 && (
+                <View style={styles.separator} />
+              )}
+            </View>
+          ))}
         </View>
       ) : (
         <View style={styles.emptyState}>
@@ -114,23 +190,23 @@ export default function QuickNotesCard({ notes, onAddNote, onEditNote }: QuickNo
           <Text style={styles.emptyText}>Tap + to add your first note</Text>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
 
-      {/* Add/Edit Note Modal */}
-      <Modal
-        visible={showModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modal}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>
-              {selectedNote ? 'Edit Note' : 'Add Quick Note'}
-            </Text>
+    {/* Add/Edit Note Modal */}
+    <Modal
+      visible={showModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modal}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>
+            {selectedNote ? 'Edit Note' : 'Add Quick Note'}
+          </Text>
 
-            <ScrollView
+          <ScrollView
               style={styles.modalScroll}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.modalContent}
@@ -232,6 +308,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.lg,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  emoji: {
+    fontSize: FontSizes.xl,
   },
   title: {
     fontSize: FontSizes.lg,
@@ -403,5 +487,35 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: FontWeights.semibold,
     color: Colors.purple,
+  },
+  loadingContainer: {
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  foldersList: {
+    marginTop: Spacing.xs,
+  },
+  folderItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  folderName: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+    color: Colors.text,
+    flex: 1,
+  },
+  folderCount: {
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+    marginLeft: Spacing.sm,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginVertical: Spacing.xs,
   },
 });

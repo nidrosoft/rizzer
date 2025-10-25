@@ -4,13 +4,15 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Platform, Modal, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Platform, Modal, ScrollView, Alert, Dimensions } from 'react-native';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
 import { Add, Gallery, Camera, Image as ImageIcon, Trash, CloseCircle } from 'iconsax-react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius, Shadows } from '@/constants/theme';
 import { PhotoGalleryProps } from '@/types/dateProfile';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoGalleryProps) {
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -50,13 +52,22 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
       quality: 0.8,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      // TODO: Upload photos to server
+      
+      const photoUris = result.assets.map(asset => asset.uri);
+      
+      console.log('📸 [PhotoGallery] Selected photos:', {
+        count: photoUris.length,
+        photos: photoUris
+      });
+      
+      // Pass all selected photo URIs to parent
+      onAddPhoto(photoUris);
+      
       setShowUploadModal(false);
-      onAddPhoto();
     }
   };
 
@@ -76,13 +87,19 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
       quality: 0.8,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      // TODO: Upload photo to server
+      
+      const photoUri = result.assets[0].uri;
+      
+      console.log('📸 [PhotoGallery] Took photo:', photoUri);
+      
+      // Pass photo URI to parent
+      onAddPhoto(photoUri);
+      
       setShowUploadModal(false);
-      onAddPhoto();
     }
   };
 
@@ -110,9 +127,6 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
     );
   };
 
-  const displayPhotos = photos.slice(0, 3);
-  const remainingCount = photos.length - 3;
-
   return (
     <>
       <View style={styles.card}>
@@ -132,7 +146,7 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
 
       {photos.length > 0 ? (
         <View style={styles.photosGrid}>
-          {displayPhotos.map((photo, index) => (
+          {photos.map((photo, index) => (
             <TouchableOpacity
               key={index}
               style={styles.photoItem}
@@ -140,11 +154,6 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
               onPress={() => handleViewPhoto(index)}
             >
               <Image source={{ uri: photo }} style={styles.photo} />
-              {index === 2 && remainingCount > 0 && (
-                <View style={styles.overlay}>
-                  <Text style={styles.overlayText}>+{remainingCount}</Text>
-                </View>
-              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -236,10 +245,10 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             style={styles.photoViewerScroll}
-            contentOffset={{ x: selectedPhotoIndex * 400, y: 0 }}
+            contentOffset={{ x: selectedPhotoIndex * SCREEN_WIDTH, y: 0 }}
           >
             {photos.map((photo, index) => (
-              <View key={index} style={styles.photoViewerPage}>
+              <View key={index} style={[styles.photoViewerPage, { width: SCREEN_WIDTH }]}>
                 <Image source={{ uri: photo }} style={styles.photoViewerImage} resizeMode="contain" />
               </View>
             ))}
@@ -293,10 +302,11 @@ const styles = StyleSheet.create({
   },
   photosGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
   },
   photoItem: {
-    flex: 1,
+    width: '31%',
     aspectRatio: 1,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
@@ -425,7 +435,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   photoViewerPage: {
-    width: 400,
     justifyContent: 'center',
     alignItems: 'center',
   },

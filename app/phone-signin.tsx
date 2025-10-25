@@ -1,0 +1,490 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Call, ArrowRight, CloseSquare, ArrowDown2, InfoCircle, Danger, Timer } from 'iconsax-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { normalize } from '@/utils/responsive';
+import { sendOTP } from '@/lib/auth';
+import { COUNTRIES, Country, sanitizePhoneNumber, removeLeadingZeros, toE164Format, validatePhoneNumber } from '@/utils/phoneNumber';
+import AlertModal from '@/components/ui/AlertModal';
+
+export default function PhoneSignInScreen() {
+  const router = useRouter();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<Country>(COUNTRIES[0]);
+  const [showCountryModal, setShowCountryModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [validationError, setValidationError] = useState<string>('');
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<{ title: string; message: string; icon: React.ReactNode }>({ 
+    title: '', 
+    message: '', 
+    icon: null 
+  });
+
+  // Handle phone number input with proper sanitization
+  const handlePhoneChange = (text: string) => {
+    const cleaned = sanitizePhoneNumber(text);
+    const withoutLeadingZeros = removeLeadingZeros(cleaned);
+    setPhoneNumber(withoutLeadingZeros);
+    
+    // Clear validation error when user types
+    if (validationError) {
+      setValidationError('');
+    }
+  };
+
+  // Get funny error message based on error type
+  const getFunnyErrorMessage = (error: string) => {
+    const errorLower = error.toLowerCase();
+    
+    // Twilio daily message limit (63038 error)
+    if (errorLower.includes('exceeded the') && errorLower.includes('daily messages limit')) {
+      return {
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
+        title: 'Oops! Daily limit reached',
+        message: 'Looks like you\'ve hit your limit for authentication code requests today. Please try again tomorrow!'
+      };
+    }
+    
+    // Twilio rate limit (general)
+    if (errorLower.includes('63038') || (errorLower.includes('exceeded') && errorLower.includes('limit'))) {
+      return {
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
+        title: 'Oops! Daily limit reached',
+        message: 'You\'ve requested the maximum authentication codes for today. Try again in a few hours or tomorrow!'
+      };
+    }
+    
+    // Too many digits
+    if (phoneNumber.length > selectedCountry.maxLength) {
+      return {
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
+        title: 'Whoa, that\'s a long number!',
+        message: `Phone numbers in ${selectedCountry.name} are usually ${selectedCountry.maxLength} digits. Looks like you added a few extra! Double-check and try again.`
+      };
+    }
+    
+    // Too few digits
+    if (phoneNumber.length < selectedCountry.minLength) {
+      return {
+        icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
+        title: 'Hmm, something\'s missing...',
+        message: `Phone numbers in ${selectedCountry.name} need at least ${selectedCountry.minLength} digits. You're almost there!`
+      };
+    }
+    
+    // Invalid format from Twilio
+    if (errorLower.includes('not a valid phone number') || errorLower.includes('invalid')) {
+      return {
+        icon: <Danger size={24} color="#FF6B6B" variant="Bold" />,
+        title: 'Oops! That doesn\'t look right',
+        message: `We couldn't recognize this as a valid ${selectedCountry.name} phone number. Mind double-checking it?`
+      };
+    }
+    
+    // Network or server error
+    if (errorLower.includes('network') || errorLower.includes('connection')) {
+      return {
+        icon: <Danger size={24} color="#FF6B6B" variant="Bold" />,
+        title: 'Connection hiccup!',
+        message: 'Looks like the internet gremlins are at it again. Check your connection and give it another shot!'
+      };
+    }
+    
+    // Rate limit (user-specific)
+    if (errorLower.includes('rate') || errorLower.includes('too many')) {
+      return {
+        icon: <Timer size={24} color={Colors.purple} variant="Bold" />,
+        title: 'Slow down there, speedy!',
+        message: 'You\'re trying too fast! Take a breather and try again in a minute.'
+      };
+    }
+    
+    // Default funny error
+    return {
+      icon: <InfoCircle size={24} color={Colors.purple} variant="Bold" />,
+      title: 'Well, this is awkward...',
+      message: 'Something unexpected happened. But hey, even the best apps have their moments! Try again?'
+    };
+  };
+
+  const handleContinue = async () => {
+    // Validate phone number
+    const validation = validatePhoneNumber(phoneNumber, selectedCountry);
+    
+    if (!validation.isValid) {
+      const funnyError = getFunnyErrorMessage(validation.error || '');
+      setErrorMessage(funnyError);
+      setShowErrorModal(true);
+      return;
+    }
+
+    setIsLoading(true);
+    setValidationError('');
+
+    try {
+      // Format phone number in E.164 format
+      const e164Number = toE164Format(phoneNumber, selectedCountry);
+      console.log('📱 [SIGN-IN] Sending OTP to:', e164Number);
+
+      // Send OTP via Supabase
+      const { success, error } = await sendOTP(e164Number);
+      
+      console.log('📬 [SIGN-IN] OTP Send Result:', { success, error });
+
+      // Define errors that should still allow navigation (SMS was sent)
+      const allowNavigationErrors = [
+        'user already registered',
+        'user exists',
+        'already exists',
+        'rate limit',
+        'too many requests',
+        'timeout',
+      ];
+
+      // Check if we should navigate despite error
+      const shouldNavigate = success || (
+        error && allowNavigationErrors.some(
+          err => error.toLowerCase().includes(err)
+        )
+      );
+
+      if (shouldNavigate) {
+        console.log('✅ [SIGN-IN] Navigating to OTP screen');
+        // Navigate to OTP screen
+        router.push({
+          pathname: '/phone-otp',
+          params: { phoneNumber: e164Number }
+        });
+      } else {
+        console.log('❌ [SIGN-IN] Showing error modal:', error);
+        // Show funny error modal for critical errors only
+        const funnyError = getFunnyErrorMessage(error || '');
+        setErrorMessage(funnyError);
+        setShowErrorModal(true);
+      }
+    } catch (err: any) {
+      console.error('❌ [SIGN-IN] Exception:', err);
+      const funnyError = getFunnyErrorMessage(err.message || '');
+      setErrorMessage(funnyError);
+      setShowErrorModal(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCountrySelect = (country: Country) => {
+    setSelectedCountry(country);
+    setShowCountryModal(false);
+    // Clear validation error when country changes
+    if (validationError) {
+      setValidationError('');
+    }
+  };
+
+  // Validate phone number for UI state
+  const validation = validatePhoneNumber(phoneNumber, selectedCountry);
+  const isValid = validation.isValid;
+
+  return (
+    <>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          {/* Close Button - Right Side */}
+          <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+            <CloseSquare size={28} color={Colors.text} variant="Outline" />
+          </TouchableOpacity>
+
+        {/* Logo */}
+        <View style={styles.logoContainer}>
+          <View style={styles.logo}>
+            <Call size={28} color={Colors.text} variant="Outline" />
+          </View>
+        </View>
+
+        {/* Title */}
+        <Text style={styles.title}>Let's get you back in...</Text>
+
+        {/* Phone Input */}
+        <View style={styles.phoneInputSection}>
+          <TouchableOpacity 
+            style={styles.countrySelector}
+            onPress={() => setShowCountryModal(true)}
+          >
+            <Text style={styles.flag}>{selectedCountry.flag}</Text>
+            <Text style={styles.countryCode}>{selectedCountry.code}</Text>
+            <ArrowDown2 size={16} color={Colors.textSecondary} variant="Outline" />
+          </TouchableOpacity>
+
+          <View style={styles.inputDivider} />
+
+          <TextInput
+            style={styles.phoneInput}
+            value={phoneNumber}
+            onChangeText={handlePhoneChange}
+            keyboardType="phone-pad"
+            placeholder=""
+            maxLength={15}
+            autoFocus
+          />
+        </View>
+
+        <View style={styles.underline} />
+
+        {/* Validation Error */}
+        {validationError ? (
+          <Text style={styles.errorText}>{validationError}</Text>
+        ) : null}
+
+        {/* E.164 Format Preview */}
+        {phoneNumber.length > 0 && isValid ? (
+          <Text style={styles.formatPreview}>
+            Format: {toE164Format(phoneNumber, selectedCountry)}
+          </Text>
+        ) : null}
+
+        {/* Info Text */}
+        <Text style={styles.infoText}>
+          We'll send you a text with a verification code to sign you back in.
+        </Text>
+
+        {/* Bottom Section - Continue Button */}
+        <View style={styles.bottomSection}>
+          <TouchableOpacity
+            style={[styles.continueButton, (!isValid || isLoading) && styles.continueButtonDisabled]}
+            onPress={handleContinue}
+            disabled={!isValid || isLoading}
+            activeOpacity={0.8}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={Colors.background} />
+            ) : (
+              <ArrowRight 
+                size={28} 
+                color={isValid ? Colors.background : Colors.border} 
+                variant="Outline"
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+        </SafeAreaView>
+      </TouchableWithoutFeedback>
+
+      {/* Error Modal */}
+      <AlertModal
+        visible={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        icon={errorMessage.icon}
+        title={errorMessage.title}
+        message={errorMessage.message}
+        primaryButtonText="Sounds good, I'll try later"
+        secondaryButtonText="Try logging in with email"
+        onSecondaryPress={() => {
+          setShowErrorModal(false);
+          router.push('/email-signin');
+        }}
+      />
+
+      {/* Country Selector Modal */}
+      <Modal
+        visible={showCountryModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer} edges={['top']}>
+          {/* Modal Header */}
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Country</Text>
+            <TouchableOpacity 
+              style={styles.modalCloseButton}
+              onPress={() => setShowCountryModal(false)}
+            >
+              <CloseSquare size={28} color={Colors.text} variant="Outline" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Countries List */}
+          <FlatList
+            data={COUNTRIES}
+            keyExtractor={(item, index) => `${item.code}-${index}`}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.countryItem}
+                onPress={() => handleCountrySelect(item)}
+              >
+                <Text style={styles.countryName}>{item.name}</Text>
+                <View style={styles.countryRight}>
+                  <Text style={styles.countryFlag}>{item.flag}</Text>
+                  <Text style={styles.countryCodeText}>{item.code}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+          />
+        </SafeAreaView>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing.lg,
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  logoContainer: {
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.md,
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.text,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: normalize(32),
+    fontWeight: FontWeights.bold,
+    color: Colors.text,
+    marginBottom: Spacing.xxl,
+    marginTop: Spacing.md,
+  },
+  phoneInputSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+  },
+  countrySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingRight: Spacing.md,
+  },
+  flag: {
+    fontSize: normalize(24),
+  },
+  countryCode: {
+    fontSize: normalize(20),
+    fontWeight: FontWeights.medium,
+    color: Colors.text,
+  },
+  inputDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: Colors.border,
+    marginRight: Spacing.md,
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: normalize(20),
+    color: Colors.text,
+    padding: 0,
+  },
+  underline: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginBottom: Spacing.sm,
+  },
+  errorText: {
+    fontSize: normalize(14),
+    color: '#FF6B6B',
+    marginBottom: Spacing.sm,
+    fontWeight: FontWeights.medium,
+  },
+  formatPreview: {
+    fontSize: normalize(14),
+    color: Colors.purple,
+    fontWeight: FontWeights.semibold,
+    marginBottom: Spacing.md,
+  },
+  infoText: {
+    fontSize: normalize(14),
+    color: Colors.textSecondary,
+    lineHeight: normalize(20),
+    marginBottom: Spacing.xl,
+  },
+  bottomSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+  },
+  continueButton: {
+    width: normalize(56),
+    height: normalize(56),
+    borderRadius: normalize(28),
+    borderWidth: 2,
+    borderColor: Colors.text,
+    backgroundColor: Colors.text,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.xl,
+  },
+  continueButtonDisabled: {
+    borderColor: Colors.border,
+    backgroundColor: Colors.transparent,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    position: 'relative',
+  },
+  modalTitle: {
+    fontSize: normalize(18),
+    fontWeight: FontWeights.semibold,
+    color: Colors.text,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    right: Spacing.lg,
+    padding: Spacing.sm,
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+  },
+  countryName: {
+    fontSize: normalize(16),
+    color: Colors.text,
+  },
+  countryRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  countryFlag: {
+    fontSize: normalize(20),
+  },
+  countryCodeText: {
+    fontSize: normalize(16),
+    color: Colors.textSecondary,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginLeft: Spacing.lg,
+  },
+});

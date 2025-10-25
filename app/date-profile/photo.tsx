@@ -7,31 +7,47 @@ import { Gallery, Camera } from 'iconsax-react-native';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import Toast from '@/components/Toast';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
 
 export default function PhotoScreen() {
   const router = useRouter();
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const { draft, updateDraft, saveDraft, setCurrentStep } = useDateProfileCreationStore();
+  
+  const [photoUri, setPhotoUri] = useState<string | null>(draft.primary_photo || null);
   const [showToast, setShowToast] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     
-    // Show success toast
-    setShowToast(true);
+    if (photoUri) {
+      updateDraft({ primary_photo: photoUri });
+    }
     
-    // Navigate after a short delay to show toast
-    setTimeout(() => {
-      router.push('/tabs');
-    }, 1500);
+    await saveDraft();
+    setCurrentStep(7);
+    router.push('/date-profile/relationship-stage');
   };
 
-  const handleSkip = () => {
+  const handleCancel = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/tabs');
+    router.back();
+  };
+
+  const handleSaveAsDraft = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
+    if (photoUri) {
+      updateDraft({ primary_photo: photoUri });
+    }
+    
+    await saveDraft();
+    router.back();
   };
 
   const handleChoosePhoto = async () => {
@@ -81,15 +97,16 @@ export default function PhotoScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={8}
-      totalSteps={8}
+      currentStep={7}
+      totalSteps={13}
       icon={Gallery}
       title="Add a photo"
       helperText="A photo helps you remember them and makes the profile more personal"
       onContinue={handleContinue}
       canContinue={!!photoUri}
-      showSkip={true}
-      onSkip={handleSkip}
+      showSkip={false}
+      onCancel={handleCancel}
+      onSaveAsDraft={handleSaveAsDraft}
     >
       <View style={styles.container}>
         <View style={styles.photoPlaceholder}>

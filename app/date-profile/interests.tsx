@@ -1,80 +1,195 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Star, ArrowDown2, ArrowUp2 } from 'iconsax-react-native';
 import * as Haptics from 'expo-haptics';
-import { Heart } from 'iconsax-react-native';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
+
+interface Category {
+  name: string;
+  interests: string[];
+}
 
 export default function InterestsScreen() {
   const router = useRouter();
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const { draft, updateDraft, saveDraft, setCurrentStep } = useDateProfileCreationStore();
+  
+  const [selectedInterests, setSelectedInterests] = useState<Record<string, string[]>>({});
+  const [expandedCategory, setExpandedCategory] = useState<string>('Activities');
 
-  const interests = [
-    'Travel', 'Music', 'Movies', 'Sports', 'Fitness', 'Cooking',
-    'Art', 'Photography', 'Reading', 'Gaming', 'Dancing', 'Hiking',
-    'Yoga', 'Coffee', 'Wine', 'Fashion', 'Technology', 'Pets',
-    'Food', 'Nature', 'Beach', 'Mountains', 'Theater', 'Comedy',
+  const categories: Category[] = [
+    {
+      name: 'Activities',
+      interests: ['Dancing', 'Yoga', 'Hiking', 'Camping', 'Skiing', 'Surfing', 'Rock climbing', 'Cycling']
+    },
+    {
+      name: 'Food & Drink',
+      interests: ['Cooking', 'Baking', 'Wine tasting', 'Coffee', 'Foodie', 'Vegetarian', 'Vegan', 'BBQ']
+    },
+    {
+      name: 'Entertainment',
+      interests: ['Movies', 'Theater', 'Concerts', 'Festivals', 'Comedy shows', 'Museums', 'Art galleries', 'Gaming']
+    },
+    {
+      name: 'Music',
+      interests: ['Rock', 'Pop', 'Hip Hop', 'Jazz', 'Classical', 'Country', 'EDM', 'R&B']
+    },
+    {
+      name: 'Sports',
+      interests: ['Football', 'Basketball', 'Tennis', 'Golf', 'Soccer', 'Baseball', 'Swimming', 'Running']
+    },
+    {
+      name: 'Creative',
+      interests: ['Photography', 'Writing', 'Painting', 'Drawing', 'Crafts', 'Design', 'Fashion', 'DIY']
+    },
+    {
+      name: 'Lifestyle',
+      interests: ['Travel', 'Reading', 'Meditation', 'Volunteering', 'Sustainability', 'Pets', 'Gardening', 'Astrology']
+    },
   ];
 
-  const handleToggle = (interest: string) => {
+  const toggleCategory = (categoryName: string) => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setExpandedCategory(expandedCategory === categoryName ? '' : categoryName);
+  };
+
+  const toggleInterest = (categoryName: string, interest: string) => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     
-    if (selectedInterests.includes(interest)) {
-      setSelectedInterests(selectedInterests.filter(i => i !== interest));
-    } else {
-      if (selectedInterests.length < 10) {
-        setSelectedInterests([...selectedInterests, interest]);
-      }
+    const categoryInterests = selectedInterests[categoryName] || [];
+    
+    if (categoryInterests.includes(interest)) {
+      // Remove interest
+      setSelectedInterests({
+        ...selectedInterests,
+        [categoryName]: categoryInterests.filter(i => i !== interest)
+      });
+    } else if (categoryInterests.length < 5) {
+      // Add interest (max 5 per category)
+      setSelectedInterests({
+        ...selectedInterests,
+        [categoryName]: [...categoryInterests, interest]
+      });
     }
   };
 
-  const handleContinue = () => {
+  // Check if all categories have at least 3 interests
+  const isValid = () => {
+    return categories.every(category => {
+      const count = (selectedInterests[category.name] || []).length;
+      return count >= 3;
+    });
+  };
+
+  // Get count for specific category
+  const getCategoryCount = (categoryName: string) => {
+    return (selectedInterests[categoryName] || []).length;
+  };
+
+  const handleContinue = async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/date-profile/relationship-stage');
+    
+    // Flatten all interests into single array
+    const allInterests = Object.values(selectedInterests).flat();
+    updateDraft({ hobbies: allInterests });
+    await saveDraft();
+    setCurrentStep(12);
+    router.push('/date-profile/important-dates');
   };
 
-  const handleSkip = () => {
+  const handleCancel = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/date-profile/relationship-stage');
+    router.back();
+  };
+
+  const handleSaveAsDraft = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
+    const allInterests = Object.values(selectedInterests).flat();
+    updateDraft({ hobbies: allInterests });
+    await saveDraft();
+    router.back();
   };
 
   return (
     <OnboardingLayout
-      currentStep={4}
-      totalSteps={8}
-      icon={Heart}
+      currentStep={11}
+      totalSteps={13}
+      icon={Star}
       title="What are their interests?"
-      helperText={`Select interests to help us suggest perfect date ideas (${selectedInterests.length}/10)`}
+      helperText="Select at least 3 interests from each category"
       onContinue={handleContinue}
-      canContinue={selectedInterests.length > 0}
-      showSkip={true}
-      onSkip={handleSkip}
+      canContinue={isValid()}
+      onCancel={handleCancel}
+      onSaveAsDraft={handleSaveAsDraft}
     >
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
-        <View style={styles.interestsContainer}>
-          {interests.map((interest) => {
-            const isSelected = selectedInterests.includes(interest);
-            return (
-              <TouchableOpacity
-                key={interest}
-                style={[styles.interestTag, isSelected && styles.interestTagSelected]}
-                onPress={() => handleToggle(interest)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.interestText, isSelected && styles.interestTextSelected]}>
-                  {interest}
+        {categories.map((category, index) => (
+          <View key={category.name}>
+            {/* Category Header */}
+            <TouchableOpacity
+              style={styles.categoryHeader}
+              onPress={() => toggleCategory(category.name)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.categoryLeft}>
+                <Text style={styles.categoryName}>{category.name}</Text>
+                <Text style={[
+                  styles.categoryCount,
+                  getCategoryCount(category.name) >= 3 && styles.categoryCountComplete
+                ]}>
+                  {getCategoryCount(category.name)}/3
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+              </View>
+              {expandedCategory === category.name ? (
+                <ArrowUp2 size={20} color={Colors.text} variant="Outline" />
+              ) : (
+                <ArrowDown2 size={20} color={Colors.text} variant="Outline" />
+              )}
+            </TouchableOpacity>
+
+            {/* Interests Grid */}
+            {expandedCategory === category.name && (
+              <View style={styles.interestsGrid}>
+                {category.interests.map((interest) => (
+                  <TouchableOpacity
+                    key={interest}
+                    style={[
+                      styles.interestChip,
+                      (selectedInterests[category.name] || []).includes(interest) && styles.selectedChip,
+                    ]}
+                    onPress={() => toggleInterest(category.name, interest)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.interestText,
+                        (selectedInterests[category.name] || []).includes(interest) && styles.selectedText,
+                      ]}
+                    >
+                      {interest}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Separator */}
+            {index < categories.length - 1 && <View style={styles.separator} />}
+          </View>
+        ))}
       </ScrollView>
     </OnboardingLayout>
   );
@@ -84,30 +199,64 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  interestsContainer: {
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+  },
+  categoryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  categoryName: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.semibold,
+    color: Colors.text,
+  },
+  categoryCount: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textSecondary,
+    backgroundColor: Colors.backgroundGray,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  categoryCountComplete: {
+    color: Colors.background,
+    backgroundColor: Colors.purple,
+  },
+  interestsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
     paddingBottom: Spacing.md,
   },
-  interestTag: {
+  interestChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
+    backgroundColor: Colors.background,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    backgroundColor: Colors.background,
   },
-  interestTagSelected: {
+  selectedChip: {
     backgroundColor: Colors.text,
     borderColor: Colors.text,
   },
   interestText: {
     fontSize: FontSizes.sm,
-    color: Colors.text,
     fontWeight: FontWeights.medium,
+    color: Colors.text,
   },
-  interestTextSelected: {
-    color: Colors.textWhite,
+  selectedText: {
+    color: Colors.background,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginVertical: Spacing.xs,
   },
 });

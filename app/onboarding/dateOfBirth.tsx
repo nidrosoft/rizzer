@@ -15,12 +15,27 @@ export default function DateOfBirthScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [hasSelected, setHasSelected] = useState(false);
 
+  // Calculate age from date of birth
+  const calculateAge = (birthDate: Date): number => {
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    // Adjust age if birthday hasn't occurred this year yet
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
+
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 2,
+    stepNumber: 3,
     nextRoute: '/onboarding/gender',
     validateData: () => hasSelected,
     getDataToSave: () => ({
       dateOfBirth: date.toISOString().split('T')[0], // Format: YYYY-MM-DD
+      age: calculateAge(date),
     }),
   });
 
@@ -62,8 +77,7 @@ export default function DateOfBirthScreen() {
               key={index}
               style={[
                 styles.stepDot,
-                index === 0 && styles.stepDotFilled,
-                index === 1 && styles.stepDotActive,
+                (index === 0 || index === 1 || index === 2) && styles.stepDotActive,
               ]}
             />
           ))}

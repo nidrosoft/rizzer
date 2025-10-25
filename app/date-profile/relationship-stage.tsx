@@ -5,10 +5,13 @@ import * as Haptics from 'expo-haptics';
 import { Lovely } from 'iconsax-react-native';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
 
 export default function RelationshipStageScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState('');
+  const { draft, updateDraft, saveDraft, setCurrentStep } = useDateProfileCreationStore();
+  
+  const [selected, setSelected] = useState(draft.relationship_stage || '');
 
   const options = [
     { value: 'Just Met', description: 'Recently connected, getting to know each other' },
@@ -27,31 +30,49 @@ export default function RelationshipStageScreen() {
     setSelected(option);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/date-profile/important-dates');
+    
+    updateDraft({ relationship_stage: selected as any });
+    await saveDraft();
+    setCurrentStep(8);
+    router.push('/date-profile/how-met');
   };
 
-  const handleSkip = () => {
+  const handleCancel = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/date-profile/important-dates');
+    router.back();
+  };
+
+  const handleSaveAsDraft = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
+    if (selected) {
+      updateDraft({ relationship_stage: selected as any });
+    }
+    
+    await saveDraft();
+    router.back();
   };
 
   return (
     <OnboardingLayout
-      currentStep={5}
-      totalSteps={8}
+      currentStep={8}
+      totalSteps={13}
       icon={Lovely}
       title="What's your current status?"
       helperText="This helps us provide advice appropriate for your relationship stage"
       onContinue={handleContinue}
       canContinue={selected.length > 0}
-      showSkip={true}
-      onSkip={handleSkip}
+      showSkip={false}
+      onCancel={handleCancel}
+      onSaveAsDraft={handleSaveAsDraft}
     >
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         <View style={styles.optionsContainer}>

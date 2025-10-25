@@ -5,10 +5,13 @@ import * as Haptics from 'expo-haptics';
 import { People } from 'iconsax-react-native';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
 
 export default function HowMetScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState('');
+  const { draft, updateDraft, saveDraft, setCurrentStep } = useDateProfileCreationStore();
+  
+  const [selected, setSelected] = useState(draft.how_met || '');
 
   const options = [
     'Dating App',
@@ -29,31 +32,49 @@ export default function HowMetScreen() {
     setSelected(option);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/date-profile/interests');
+    
+    updateDraft({ how_met: selected });
+    await saveDraft();
+    setCurrentStep(9);
+    router.push('/date-profile/love-language');
   };
 
-  const handleSkip = () => {
+  const handleCancel = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/date-profile/interests');
+    router.back();
+  };
+
+  const handleSaveAsDraft = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    
+    if (selected) {
+      updateDraft({ how_met: selected });
+    }
+    
+    await saveDraft();
+    router.back();
   };
 
   return (
     <OnboardingLayout
-      currentStep={3}
-      totalSteps={8}
+      currentStep={9}
+      totalSteps={13}
       icon={People}
       title="How did you meet?"
       helperText="Understanding your connection helps us tailor conversation starters"
       onContinue={handleContinue}
       canContinue={selected.length > 0}
-      showSkip={true}
-      onSkip={handleSkip}
+      showSkip={false}
+      onCancel={handleCancel}
+      onSaveAsDraft={handleSaveAsDraft}
     >
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         <View style={styles.optionsContainer}>

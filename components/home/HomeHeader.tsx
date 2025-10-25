@@ -3,13 +3,42 @@
  * Header with user greeting and notification button
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
 import { Colors, Spacing, FontSizes, FontWeights, Shadows } from '@/constants/theme';
 import { HomeHeaderProps } from '@/types/home';
+import { useAuthStore } from '@/store/authStore';
 
 export default function HomeHeader({ userName, onNotificationPress, onProfilePress }: HomeHeaderProps) {
+  const user = useAuthStore((state) => state.user);
+  
+  // Get dynamic greeting based on time of day
+  const { greeting, emoji } = useMemo(() => {
+    const hour = new Date().getHours();
+    
+    if (hour >= 5 && hour < 12) {
+      return { greeting: 'Good Morning', emoji: '☀️' };
+    } else if (hour >= 12 && hour < 17) {
+      return { greeting: 'Good Afternoon', emoji: '🌤️' };
+    } else if (hour >= 17 && hour < 21) {
+      return { greeting: 'Good Evening', emoji: '🌆' };
+    } else {
+      return { greeting: 'Good Night', emoji: '🌙' };
+    }
+  }, []);
+  
+  // Get user's profile photo
+  const profilePhoto = useMemo(() => {
+    if (user?.photos && Array.isArray(user.photos) && user.photos.length > 0) {
+      return user.photos[0];
+    }
+    if (user?.avatar_url) {
+      return user.avatar_url;
+    }
+    return 'https://i.pravatar.cc/150?img=12'; // Fallback
+  }, [user?.photos, user?.avatar_url]);
+  
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
@@ -22,14 +51,14 @@ export default function HomeHeader({ userName, onNotificationPress, onProfilePre
           >
             <View style={styles.profileInner}>
               <Image
-                source={{ uri: 'https://i.pravatar.cc/150?img=12' }}
+                source={{ uri: profilePhoto }}
                 style={styles.profilePicture}
               />
             </View>
           </LinearGradient>
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.subGreeting}>Good Morning</Text>
+          <Text style={styles.subGreeting}>{greeting} {emoji}</Text>
           <Text style={styles.greeting}>{userName}</Text>
         </View>
       </View>

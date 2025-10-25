@@ -1,5 +1,5 @@
 import React, { ReactNode, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
 import { ArrowRight, CloseCircle, DocumentText, Trash } from 'iconsax-react-native';
@@ -97,8 +97,12 @@ export default function OnboardingLayout(props: OnboardingLayoutProps) {
         </View>
       </View>
 
-      {/* Content */}
-      <View style={styles.content}>
+      {/* Scrollable Content */}
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Title */}
         <Text style={styles.title}>{title}</Text>
 
@@ -107,22 +111,22 @@ export default function OnboardingLayout(props: OnboardingLayoutProps) {
 
         {/* Children (inputs, options, etc) */}
         {children}
+      </ScrollView>
 
-        {/* Continue Button */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-            onPress={onContinue}
-            disabled={!canContinue}
-            activeOpacity={0.8}
-          >
-            <ArrowRight
-              size={28}
-              color={canContinue ? Colors.background : Colors.border}
-              variant="Outline"
-            />
-          </TouchableOpacity>
-        </View>
+      {/* Fixed Bottom Button */}
+      <View style={styles.bottomButtonContainer}>
+        <TouchableOpacity
+          style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
+          onPress={onContinue}
+          disabled={!canContinue}
+          activeOpacity={0.8}
+        >
+          <ArrowRight
+            size={28}
+            color={canContinue ? Colors.background : Colors.border}
+            variant="Outline"
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Cancel Confirmation Modal */}
@@ -247,7 +251,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   title: {
     fontSize: normalize(32),
@@ -260,10 +267,13 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: Spacing.lg,
   },
-  buttonContainer: {
+  bottomButtonContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.background,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
     alignItems: 'flex-end',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.lg,
   },
   continueButton: {
     width: normalize(56),

@@ -49,12 +49,67 @@ export type Database = {
           phone: string
           name?: string | null
           email?: string | null
-          // ... other fields optional
+          date_of_birth?: string | null
+          age?: number | null
+          gender?: string | null
+          bio?: string | null
+          occupation?: string | null
+          location?: Json | null
+          height?: number | null
+          ethnicity?: string | null
+          religion?: string | null
+          zodiac_sign?: string | null
+          drinking?: string | null
+          looking_for?: string | null
+          relationship_type?: string | null
+          primary_goal?: string | null
+          interests?: string[] | null
+          photos?: Json | null
+          avatar_url?: string | null
+          is_premium?: boolean | null
+          premium_expires_at?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          last_active_at?: string | null
+          is_admin?: boolean | null
+          is_banned?: boolean | null
+          ban_reason?: string | null
+          flagged_count?: number | null
         }
         Update: {
           phone?: string
           name?: string | null
-          // ... all fields optional
+          email?: string | null
+          date_of_birth?: string | null
+          age?: number | null
+          gender?: string | null
+          bio?: string | null
+          occupation?: string | null
+          location?: Json | null
+          height?: number | null
+          ethnicity?: string | null
+          religion?: string | null
+          zodiac_sign?: string | null
+          drinking?: string | null
+          looking_for?: string | null
+          relationship_type?: string | null
+          primary_goal?: string | null
+          interests?: string[] | null
+          photos?: Json | null
+          avatar_url?: string | null
+          is_premium?: boolean | null
+          premium_expires_at?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+          last_active_at?: string | null
+          is_admin?: boolean | null
+          is_banned?: boolean | null
+          ban_reason?: string | null
+          flagged_count?: number | null
         }
       }
       // ... other tables

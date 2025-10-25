@@ -107,13 +107,19 @@ export default function SettingsScreen() {
       setShowDeleteModal(false);
       setDeleteConfirmText('');
       
+      // Show success alert
       Alert.alert(
         'Account Deleted',
         'Your account and all associated data have been permanently deleted.',
         [
           {
             text: 'OK',
-            onPress: () => router.replace('/phone-entry'),
+            onPress: () => {
+              // Wait 3 seconds then redirect to landing page
+              setTimeout(() => {
+                router.replace('/');
+              }, 3000);
+            },
           },
         ],
         { cancelable: false }
@@ -309,72 +315,59 @@ export default function SettingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.deleteModalContent}>
-            <View style={styles.deleteIconContainer}>
-              <Warning2 size={48} color={Colors.error} variant="Bold" />
+            {/* Icon in top-right corner (new style) */}
+            <View style={styles.deleteIconCorner}>
+              <Trash size={24} color="#FF4444" variant="Bold" />
             </View>
             
-            <Text style={styles.deleteModalTitle}>Delete Account?</Text>
+            <Text style={styles.deleteModalTitle}>Delete your account?</Text>
             <Text style={styles.deleteModalMessage}>
-              This action is permanent and cannot be undone. All your data, including:
-            </Text>
-            
-            <View style={styles.deleteListContainer}>
-              <Text style={styles.deleteListItem}>• Profile information</Text>
-              <Text style={styles.deleteListItem}>• Date profiles</Text>
-              <Text style={styles.deleteListItem}>• Photos and media</Text>
-              <Text style={styles.deleteListItem}>• Rizz library</Text>
-              <Text style={styles.deleteListItem}>• Chat history</Text>
-              <Text style={styles.deleteListItem}>• All other account data</Text>
-            </View>
-            
-            <Text style={styles.deleteModalWarning}>
-              will be permanently deleted.
+              This action is permanent and cannot be undone. All your data will be permanently deleted.
             </Text>
             
             <Text style={styles.deleteModalInstruction}>
               Type <Text style={styles.deleteKeyword}>DELETE</Text> to confirm:
             </Text>
             
-            <TextInput
-              style={styles.deleteInput}
-              value={deleteConfirmText}
-              onChangeText={setDeleteConfirmText}
-              placeholder="Type DELETE here"
-              placeholderTextColor={Colors.textLight}
-              autoCapitalize="characters"
-              editable={!isDeleting}
-            />
-            
-            <View style={styles.deleteModalButtons}>
-              <TouchableOpacity
-                style={[styles.deleteModalButton, styles.deleteCancelButton]}
-                onPress={() => {
-                  setShowDeleteModal(false);
-                  setDeleteConfirmText('');
-                }}
-                disabled={isDeleting}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.deleteCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.deleteModalButton,
-                  styles.deleteConfirmButton,
-                  (deleteConfirmText.toLowerCase() !== 'delete' || isDeleting) && styles.deleteConfirmButtonDisabled,
-                ]}
-                onPress={confirmDeleteAccount}
-                disabled={deleteConfirmText.toLowerCase() !== 'delete' || isDeleting}
-                activeOpacity={0.7}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator color={Colors.background} />
-                ) : (
-                  <Text style={styles.deleteConfirmText}>Delete Forever</Text>
-                )}
-              </TouchableOpacity>
+            <View style={styles.deleteInputContainer}>
+              <TextInput
+                style={styles.deleteInput}
+                value={deleteConfirmText}
+                onChangeText={setDeleteConfirmText}
+                placeholder="DELETE"
+                placeholderTextColor={Colors.textSecondary}
+                autoCapitalize="characters"
+                editable={!isDeleting}
+              />
             </View>
+            
+            <TouchableOpacity
+              style={[
+                styles.deleteConfirmButton,
+                (deleteConfirmText.toLowerCase() !== 'delete' || isDeleting) && styles.deleteConfirmButtonDisabled,
+              ]}
+              onPress={confirmDeleteAccount}
+              disabled={deleteConfirmText.toLowerCase() !== 'delete' || isDeleting}
+              activeOpacity={0.8}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color={Colors.background} />
+              ) : (
+                <Text style={styles.deleteConfirmText}>Delete Forever</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.deleteCancelButton}
+              onPress={() => {
+                setShowDeleteModal(false);
+                setDeleteConfirmText('');
+              }}
+              disabled={isDeleting}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.deleteCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -447,101 +440,90 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     borderRadius: 24,
     padding: Spacing.xl,
-    width: '100%',
-    maxWidth: 400,
+    marginHorizontal: Spacing.xl,
+    maxWidth: 340,
+    width: '85%',
+    position: 'relative',
   },
-  deleteIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  deleteIconCorner: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: Spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   deleteModalTitle: {
-    fontSize: normalize(24),
+    fontSize: 22,
     fontWeight: FontWeights.bold,
     color: Colors.text,
-    textAlign: 'center',
     marginBottom: Spacing.sm,
+    textAlign: 'left',
+    lineHeight: 28,
   },
   deleteModalMessage: {
-    fontSize: normalize(15),
+    fontSize: normalize(16),
     color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: Spacing.md,
-  },
-  deleteListContainer: {
-    backgroundColor: Colors.backgroundGray,
-    borderRadius: 12,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  deleteListItem: {
-    fontSize: normalize(14),
-    color: Colors.text,
-    marginBottom: 4,
+    textAlign: 'left',
     lineHeight: 20,
-  },
-  deleteModalWarning: {
-    fontSize: normalize(15),
-    color: Colors.textSecondary,
-    textAlign: 'center',
     marginBottom: Spacing.lg,
-    fontWeight: FontWeights.semibold,
   },
   deleteModalInstruction: {
     fontSize: normalize(15),
     color: Colors.text,
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: Spacing.sm,
   },
   deleteKeyword: {
     fontWeight: FontWeights.bold,
     color: Colors.error,
   },
-  deleteInput: {
-    borderWidth: 2,
-    borderColor: Colors.border,
+  deleteInputContainer: {
+    backgroundColor: Colors.backgroundGray,
     borderRadius: 12,
-    padding: Spacing.md,
-    fontSize: normalize(16),
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  deleteInput: {
+    fontSize: normalize(18),
     color: Colors.text,
+    paddingVertical: Spacing.xs,
     textAlign: 'center',
-    marginBottom: Spacing.lg,
     fontWeight: FontWeights.semibold,
   },
-  deleteModalButtons: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  deleteModalButton: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   deleteCancelButton: {
-    backgroundColor: Colors.backgroundGray,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
   },
   deleteCancelText: {
     fontSize: normalize(16),
     fontWeight: FontWeights.semibold,
-    color: Colors.text,
+    color: Colors.purple,
   },
   deleteConfirmButton: {
+    borderRadius: 100,
+    overflow: 'hidden',
+    marginBottom: Spacing.sm,
     backgroundColor: Colors.error,
+    paddingVertical: Spacing.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteConfirmButtonDisabled: {
-    backgroundColor: Colors.borderLight,
+    opacity: 0.5,
   },
   deleteConfirmText: {
     fontSize: normalize(16),
     fontWeight: FontWeights.bold,
-    color: Colors.background,
+    color: Colors.textWhite,
   },
 });

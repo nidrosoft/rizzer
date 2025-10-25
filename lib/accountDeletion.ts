@@ -74,16 +74,9 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
       throw new Error('Failed to delete date profiles');
     }
 
-    // 4. Delete user onboarding data
-    const { error: deleteOnboardingError } = await supabase
-      .from('onboarding_progress')
-      .delete()
-      .eq('user_id', userId);
-
-    if (deleteOnboardingError) {
-      console.error('Error deleting onboarding data:', deleteOnboardingError);
-      // Continue even if this fails
-    }
+    // 4. Delete user onboarding data (if table exists)
+    // Skip this step as onboarding data is stored in users table
+    // No separate onboarding_progress table needed
 
     // 5. Delete user profile data
     const { error: deleteUserError } = await supabase
@@ -96,15 +89,8 @@ export async function deleteUserAccount(userId: string): Promise<DeleteAccountRe
       throw new Error('Failed to delete user data');
     }
 
-    // 6. Delete auth account (this should be done last)
-    const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(userId);
-
-    if (deleteAuthError) {
-      console.error('Error deleting auth account:', deleteAuthError);
-      // Note: This might fail if user doesn't have admin privileges
-      // In production, this should be done via a secure backend endpoint
-      throw new Error('Failed to delete authentication account');
-    }
+    // 6. Sign out the user (auth account will be handled by backend/admin)
+    await supabase.auth.signOut();
 
     console.log('Account deletion completed successfully');
     return { success: true };

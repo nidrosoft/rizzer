@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Location as LocationIcon, Lamp } from 'iconsax-react-native';
+import { Location as LocationIcon, Lamp, TickCircle } from 'iconsax-react-native';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import OnboardingLayout from '@/components/onboarding/OnboardingLayout';
+import AlertModal from '@/components/ui/AlertModal';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
 import { useOnboardingStep } from '@/hooks/useOnboardingStep';
 
@@ -21,7 +23,7 @@ export default function LocationScreen() {
   const [showModal, setShowModal] = useState(false);
 
   const { handleContinue: saveAndContinue, isSaving } = useOnboardingStep({
-    stepNumber: 4,
+    stepNumber: 5,
     nextRoute: '/onboarding/primaryGoal',
     validateData: () => !!city,
     getDataToSave: () => ({
@@ -97,7 +99,7 @@ export default function LocationScreen() {
 
   return (
     <OnboardingLayout
-      currentStep={4}
+      currentStep={5}
       totalSteps={16}
       icon={LocationIcon}
       title="Where are you located?"
@@ -111,11 +113,36 @@ export default function LocationScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Location Card */}
-        {city && (
+        {city && latitude && longitude && (
           <View style={styles.locationCard}>
-            <View style={styles.mapPlaceholder}>
-              <LocationIcon size={48} color={Colors.purple} variant="Bold" />
-              <Text style={styles.mapLabel}>My Current Location</Text>
+            <View style={styles.mapContainer}>
+              <MapView
+                style={styles.map}
+                provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+                initialRegion={{
+                  latitude: latitude,
+                  longitude: longitude,
+                  latitudeDelta: 0.05,
+                  longitudeDelta: 0.05,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: latitude,
+                    longitude: longitude,
+                  }}
+                  title="Your Location"
+                  pinColor={Colors.purple}
+                />
+              </MapView>
+              <View style={styles.mapOverlay}>
+                <LocationIcon size={24} color={Colors.textWhite} variant="Bold" />
+                <Text style={styles.mapLabel}>My Current Location</Text>
+              </View>
             </View>
             <View style={styles.locationInfo}>
               <Text style={styles.cityText}>{city}</Text>
@@ -153,9 +180,7 @@ export default function LocationScreen() {
         {/* Tips */}
         <View style={styles.tipsContainer}>
           <View style={styles.tipsHeader}>
-            <View style={styles.tipIconCircle}>
-              <Lamp size={20} color={Colors.purple} variant="Bold" />
-            </View>
+            <Lamp size={20} color={Colors.textWhite} variant="Bold" />
             <Text style={styles.tipsTitle}>Location Tips:</Text>
           </View>
           <Text style={styles.tipText}>• Your location helps us show you nearby events</Text>
@@ -164,34 +189,15 @@ export default function LocationScreen() {
         </View>
       </ScrollView>
 
-      {/* Fun Modal */}
-      <Modal
+      {/* Location Confirmation Modal */}
+      <AlertModal
         visible={showModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Haha, you live in {city}! 🎉</Text>
-            <Text style={styles.modalMessage}>
-              Great choice! We found some awesome matches nearby.
-            </Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                setShowModal(false);
-                if (Platform.OS === 'ios') {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowModal(false)}
+        icon={<TickCircle size={24} color={Colors.success || Colors.purple} variant="Bold" />}
+        title={`Perfect! You're in ${city}!`}
+        message="We're already thinking about amazing date ideas and experiences in your area!"
+        primaryButtonText="Sounds good!"
+      />
     </OnboardingLayout>
   );
 }
@@ -211,17 +217,30 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: Spacing.lg,
   },
-  mapPlaceholder: {
+  mapContainer: {
     height: 200,
-    backgroundColor: 'rgba(171, 71, 188, 0.08)',
-    justifyContent: 'center',
+    position: 'relative',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  mapOverlay: {
+    position: 'absolute',
+    top: Spacing.md,
+    left: Spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   mapLabel: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
-    color: Colors.purple,
+    color: Colors.textWhite,
   },
   locationInfo: {
     padding: Spacing.lg,
@@ -256,11 +275,10 @@ const styles = StyleSheet.create({
     color: Colors.background,
   },
   tipsContainer: {
-    backgroundColor: 'rgba(171, 71, 188, 0.08)',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(171, 71, 188, 0.2)',
+    backgroundColor: Colors.text,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.xl,
+    marginTop: Spacing.md,
   },
   tipsHeader: {
     flexDirection: 'row',
@@ -268,65 +286,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     gap: Spacing.xs,
   },
-  tipIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(171, 71, 188, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   tipsTitle: {
     fontSize: FontSizes.md,
-    fontWeight: FontWeights.bold,
-    color: Colors.purple,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textWhite,
+    marginLeft: Spacing.xs,
   },
   tipText: {
     fontSize: FontSizes.sm,
-    color: Colors.text,
-    marginBottom: 4,
+    color: 'rgba(255, 255, 255, 0.8)',
     lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-  },
-  modalContent: {
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    width: '100%',
-    maxWidth: 340,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: FontSizes.xxl,
-    fontWeight: FontWeights.bold,
-    color: Colors.text,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  modalMessage: {
-    fontSize: FontSizes.md,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: Spacing.xl,
-    lineHeight: 22,
-  },
-  modalButton: {
-    backgroundColor: Colors.backgroundGray,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xxl,
-    borderRadius: BorderRadius.full,
-    minWidth: 120,
-  },
-  modalButtonText: {
-    fontSize: FontSizes.md,
-    fontWeight: FontWeights.bold,
-    color: Colors.text,
-    textAlign: 'center',
   },
 });
