@@ -26,7 +26,14 @@ export default function DeleteModal({ visible, onClose, onConfirm }: DeleteModal
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <View style={styles.iconContainer}>
-            <Trash size={28} color={Colors.error} variant="Bold" />
+            <LinearGradient
+              colors={[Colors.gradientStart, Colors.gradientEnd]}
+              style={styles.iconGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Trash size={28} color={Colors.textWhite} variant="Bold" />
+            </LinearGradient>
           </View>
           
           <Text style={styles.title}>Delete Chat?</Text>
