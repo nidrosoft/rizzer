@@ -26,14 +26,7 @@ export default function DeleteModal({ visible, onClose, onConfirm }: DeleteModal
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <View style={styles.iconContainer}>
-            <LinearGradient
-              colors={[Colors.error, '#D32F2F']}
-              style={styles.iconGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Trash size={28} color={Colors.textWhite} variant="Bold" />
-            </LinearGradient>
+            <Trash size={28} color={Colors.error} variant="Bold" />
           </View>
           
           <Text style={styles.title}>Delete Chat?</Text>
@@ -47,7 +40,7 @@ export default function DeleteModal({ visible, onClose, onConfirm }: DeleteModal
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={[Colors.error, '#D32F2F']}
+              colors={[Colors.gradientStart, Colors.gradientEnd]}
               style={styles.deleteButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -93,6 +86,8 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,

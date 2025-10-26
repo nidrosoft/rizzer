@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
 import { Microphone, AttachCircle, Send2 } from 'iconsax-react-native';
 import AudioWaveform from '@/components/ui/AudioWaveform';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/theme';
@@ -69,12 +70,19 @@ export default function ChatInput({
       </View>
       
       <TouchableOpacity 
-        style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
+        style={styles.sendButton}
         onPress={onSend}
         disabled={!message.trim() || sending}
-        activeOpacity={0.6}
+        activeOpacity={0.8}
       >
-        <Send2 size={24} color={Colors.textWhite} variant="Bold" />
+        <LinearGradient
+          colors={message.trim() && !sending ? [Colors.gradientStart, Colors.gradientEnd] : ['#E0E0E0', '#E0E0E0']}
+          style={styles.sendButtonGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <Send2 size={20} color={Colors.textWhite} variant="Bold" />
+        </LinearGradient>
       </TouchableOpacity>
 
       {/* Image Preview */}
@@ -128,15 +136,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
   },
   sendButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.purple,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  sendButtonGradient: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
   },
   imagePreviewContainer: {
     position: 'absolute',
