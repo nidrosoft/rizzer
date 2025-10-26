@@ -24,6 +24,7 @@ import ChatHeader from '@/components/genius-chat/ChatHeader';
 import ChatInput from '@/components/genius-chat/ChatInput';
 import ActionSheet from '@/components/genius-chat/ActionSheet';
 import DeleteModal from '@/components/genius-chat/DeleteModal';
+import AttachmentMenu from '@/components/genius-chat/AttachmentMenu';
 
 interface Message {
   id: string;
@@ -695,53 +696,12 @@ export default function GeniusChatScreen() {
       />
 
       {/* Attachment Menu */}
-      <Modal
+      <AttachmentMenu
         visible={showAttachmentMenu}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowAttachmentMenu(false)}
-      >
-        <TouchableOpacity 
-          style={styles.actionSheetOverlay}
-          activeOpacity={1}
-          onPress={() => setShowAttachmentMenu(false)}
-        >
-          <View style={styles.actionSheet}>
-            <View style={styles.actionSheetHandle} />
-            <Text style={styles.actionSheetTitle}>Add Attachment</Text>
-            
-            <TouchableOpacity 
-              style={styles.actionSheetOption}
-              onPress={() => handleImagePicker('camera')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionSheetIconContainer, { backgroundColor: `${Colors.purple}15` }]}>
-                <Camera size={22} color={Colors.purple} variant="Bold" />
-              </View>
-              <View style={styles.actionSheetTextContainer}>
-                <Text style={styles.actionSheetOptionText}>Take Photo</Text>
-                <Text style={styles.actionSheetOptionSubtext}>Use camera</Text>
-              </View>
-            </TouchableOpacity>
-
-            <View style={styles.actionSheetDivider} />
-
-            <TouchableOpacity 
-              style={styles.actionSheetOption}
-              onPress={() => handleImagePicker('gallery')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionSheetIconContainer, { backgroundColor: `${Colors.gradientStart}15` }]}>
-                <Gallery size={22} color={Colors.gradientStart} variant="Bold" />
-              </View>
-              <View style={styles.actionSheetTextContainer}>
-                <Text style={styles.actionSheetOptionText}>Choose from Gallery</Text>
-                <Text style={styles.actionSheetOptionSubtext}>Select photo</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setShowAttachmentMenu(false)}
+        onCamera={() => handleImagePicker('camera')}
+        onGallery={() => handleImagePicker('gallery')}
+      />
 
       {/* Selected Image Preview */}
       {selectedImage && (
@@ -758,35 +718,37 @@ export default function GeniusChatScreen() {
 
       {/* Transcribing Indicator */}
       {isTranscribing && (
-        <View style={styles.transcribingContainer}>
-          <TranscribingIndicator visible={isTranscribing} />
-        </View>
-      )}
-
-      {/* Microphone Permission Modal */}
       <PermissionModal
         visible={showMicPermissionModal}
         onClose={() => setShowMicPermissionModal(false)}
         onAllow={handleMicPermissionAllow}
         title="Microphone Access"
-        message="Allow Rizz Coach to access your microphone to transcribe voice messages."
-        icon={<Microphone size={28} color={Colors.purple} variant="Bold" />}
-        iconColor={Colors.purple}
+        message="We need access to your microphone to record voice messages."
+        icon="microphone"
       />
 
-      {/* Camera Permission Modal */}
       <PermissionModal
         visible={showCameraPermissionModal}
         onClose={() => setShowCameraPermissionModal(false)}
         onAllow={handleCameraPermissionAllow}
         title="Camera Access"
-        message="Allow Rizz Coach to access your camera to analyze photos and provide insights."
-        icon={<Camera size={28} color={Colors.gradientStart} variant="Bold" />}
-        iconColor={Colors.gradientStart}
+        message="We need access to your camera to take photos."
+        icon="camera"
       />
 
+      {/* Transcribing Indicator */}
+      {isTranscribing && (
+        <View style={styles.transcribingContainer}>
+          <TranscribingIndicator />
+        </View>
+      )}
+
       {/* Toast */}
-      <Toast visible={showToast} message={toastMessage} onHide={() => setShowToast(false)} />
+      <Toast
+        visible={showToast}
+        message={toastMessage}
+        onHide={() => setShowToast(false)}
+      />
     </LinearGradient>
   );
 }
