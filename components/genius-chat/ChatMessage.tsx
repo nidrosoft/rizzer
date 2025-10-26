@@ -52,7 +52,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   userMessageBubble: {
-    backgroundColor: Colors.gradientStart,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderTopLeftRadius: 16,
