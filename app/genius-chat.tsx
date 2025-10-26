@@ -22,6 +22,8 @@ import ChatMessage from '@/components/genius-chat/ChatMessage';
 import ChatMessageList from '@/components/genius-chat/ChatMessageList';
 import ChatHeader from '@/components/genius-chat/ChatHeader';
 import ChatInput from '@/components/genius-chat/ChatInput';
+import ActionSheet from '@/components/genius-chat/ActionSheet';
+import DeleteModal from '@/components/genius-chat/DeleteModal';
 
 interface Message {
   id: string;
@@ -675,96 +677,22 @@ export default function GeniusChatScreen() {
           onRemoveImage={() => setSelectedImage(null)}
           analyzingImage={analyzingImage}
         />
+      </KeyboardAvoidingView>
 
-    {/* Action Sheet */}
-    <Modal
-      visible={showActionSheet}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowActionSheet(false)}
-    >
-      <TouchableOpacity 
-        style={styles.actionSheetOverlay}
-        activeOpacity={1}
-        onPress={() => setShowActionSheet(false)}
-      >
-        <View style={styles.actionSheet}>
-          <View style={styles.actionSheetHandle} />
-          <Text style={styles.actionSheetTitle}>Chat Options</Text>
-          
-          <TouchableOpacity 
-            style={styles.actionSheetOption}
-            onPress={handleArchivePress}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.actionSheetIconContainer, { backgroundColor: `${Colors.purple}15` }]}>
-              <Archive size={22} color={Colors.purple} variant="Bold" />
-            </View>
-            <View style={styles.actionSheetTextContainer}>
-              <Text style={styles.actionSheetOptionText}>Archive Chat</Text>
-              <Text style={styles.actionSheetOptionSubtext}>Hide from list</Text>
-            </View>
-          </TouchableOpacity>
+      {/* Action Sheet */}
+      <ActionSheet
+        visible={showActionSheet}
+        onClose={() => setShowActionSheet(false)}
+        onArchive={handleArchivePress}
+        onDelete={handleDeletePress}
+      />
 
-          <View style={styles.actionSheetDivider} />
-
-          <TouchableOpacity 
-            style={styles.actionSheetOption}
-            onPress={handleDeletePress}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.actionSheetIconContainer, { backgroundColor: '#FFE5E5' }]}>
-              <Trash size={22} color="#FF4444" variant="Bold" />
-            </View>
-            <View style={styles.actionSheetTextContainer}>
-              <Text style={[styles.actionSheetOptionText, { color: '#FF4444' }]}>Delete Chat</Text>
-              <Text style={styles.actionSheetOptionSubtext}>Remove permanently</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-
-    {/* Delete Confirmation Modal */}
-    <Modal
-      visible={showDeleteModal}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowDeleteModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.deleteModal}>
-          <View style={styles.deleteModalIcon}>
-            <Trash size={24} color="#FF4444" variant="Bold" />
-          </View>
-          <Text style={styles.deleteModalTitle}>Delete this chat?</Text>
-          <Text style={styles.deleteModalMessage}>
-            Once deleted, all messages will be permanently removed.
-          </Text>
-          <TouchableOpacity 
-            style={styles.deleteButton}
-            onPress={handleConfirmDelete}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[Colors.gradientStart, Colors.gradientEnd]}
-              style={styles.deleteButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Text style={styles.deleteButtonText}>Yes, delete</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.cancelButton}
-            onPress={handleCancelDelete}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+      {/* Delete Confirmation Modal */}
+      <DeleteModal
+        visible={showDeleteModal}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+      />
 
       {/* Attachment Menu */}
       <Modal
