@@ -19,6 +19,7 @@ import { getChatThreadById, getChatMessages, sendMessage, deleteChatThread, arch
 import { ChatMessage as ChatMessageType } from '@/lib/geniusChat';
 import { supabase } from '@/lib/supabase';
 import ChatMessage from '@/components/genius-chat/ChatMessage';
+import ChatMessageList from '@/components/genius-chat/ChatMessageList';
 
 interface Message {
   id: string;
@@ -685,28 +686,12 @@ export default function GeniusChatScreen() {
         </LinearGradient>
 
         {/* Messages */}
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-        >
-          {messages.length === 0 && !loading ? (
-            <View style={styles.emptyChat}>
-              <Text style={styles.emptyChatText}>Start a conversation with your dating coach!</Text>
-            </View>
-          ) : loading ? (
-            <View style={styles.emptyChat}>
-              <Text style={styles.emptyChatText}>Loading...</Text>
-            </View>
-          ) : (
-            messages.map((msg) => (
-              <ChatMessage key={msg.id} message={msg} />
-            ))
-          )}
-          {isTyping && <TypingIndicator />}
-        </ScrollView>
+        <ChatMessageList
+          messages={messages}
+          loading={loading}
+          isTyping={isTyping}
+          scrollViewRef={scrollViewRef}
+        />
 
         {/* Input Area */}
         <View style={styles.inputContainer}>
@@ -974,24 +959,6 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
     color: Colors.text,
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messagesContent: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.xl,
-  },
-  emptyChat: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: Spacing.xxl * 3,
-  },
-  emptyChatText: {
-    fontSize: FontSizes.md,
-    color: Colors.textSecondary,
-    textAlign: 'center',
   },
   userMessageContainer: {
     alignSelf: 'flex-end',
