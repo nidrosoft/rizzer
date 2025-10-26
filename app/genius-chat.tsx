@@ -16,8 +16,9 @@ import Markdown from 'react-native-markdown-display';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
 import { getChatThreadById, getChatMessages, sendMessage, deleteChatThread, archiveChatThread } from '@/lib/geniusChat';
-import { ChatMessage } from '@/lib/geniusChat';
+import { ChatMessage as ChatMessageType } from '@/lib/geniusChat';
 import { supabase } from '@/lib/supabase';
+import ChatMessage from '@/components/genius-chat/ChatMessage';
 
 interface Message {
   id: string;
@@ -85,7 +86,7 @@ export default function GeniusChatScreen() {
     try {
       const result = await getChatMessages(id);
       if (result.success && result.data) {
-        const formattedMessages: Message[] = result.data.map((msg: ChatMessage) => ({
+        const formattedMessages: Message[] = result.data.map((msg: ChatMessageType) => ({
           id: msg.id,
           text: msg.content,
           isUser: msg.role === 'user',
@@ -701,28 +702,7 @@ export default function GeniusChatScreen() {
             </View>
           ) : (
             messages.map((msg) => (
-              msg.isUser ? (
-                <View key={msg.id} style={styles.userMessageContainer}>
-                  <LinearGradient
-                    colors={[Colors.gradientStart, Colors.gradientEnd]}
-                    style={styles.userMessageBubble}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.userMessageText}>
-                      {msg.text}
-                    </Text>
-                  </LinearGradient>
-                </View>
-              ) : (
-                <View key={msg.id} style={styles.aiMessageContainer}>
-                  <View style={styles.aiMessageBubble}>
-                    <Markdown style={markdownStyles}>
-                      {msg.text}
-                    </Markdown>
-                  </View>
-                </View>
-              )
+              <ChatMessage key={msg.id} message={msg} />
             ))
           )}
           {isTyping && <TypingIndicator />}
@@ -1261,61 +1241,3 @@ const styles = StyleSheet.create({
   },
 });
 
-// Markdown styles for AI messages
-const markdownStyles = {
-  body: {
-    fontSize: FontSizes.md,
-    lineHeight: 22,
-    color: Colors.text,
-  },
-  heading1: {
-    fontSize: FontSizes.xl,
-    fontWeight: FontWeights.bold,
-    color: Colors.text,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  heading2: {
-    fontSize: FontSizes.lg,
-    fontWeight: FontWeights.bold,
-    color: Colors.text,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  strong: {
-    fontWeight: FontWeights.bold,
-    color: Colors.text,
-  },
-  em: {
-    fontStyle: 'italic',
-  },
-  list_item: {
-    marginBottom: Spacing.xs,
-  },
-  bullet_list: {
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  ordered_list: {
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  code_inline: {
-    backgroundColor: Colors.backgroundGray,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  code_block: {
-    backgroundColor: Colors.backgroundGray,
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-    marginVertical: Spacing.xs,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  link: {
-    color: Colors.purple,
-    textDecorationLine: 'underline',
-  },
-};

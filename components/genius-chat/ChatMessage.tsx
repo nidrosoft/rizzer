@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
 import Markdown from 'react-native-markdown-display';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
 
@@ -20,42 +21,63 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ message }: ChatMessageProps) {
+  if (message.isUser) {
+    return (
+      <View style={styles.userMessageContainer}>
+        <LinearGradient
+          colors={[Colors.gradientStart, Colors.gradientEnd]}
+          style={styles.userMessageBubble}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <Text style={styles.userMessageText}>{message.text}</Text>
+        </LinearGradient>
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={[
-        styles.messageContainer,
-        message.isUser ? styles.userMessage : styles.aiMessage,
-      ]}
-    >
-      {message.isUser ? (
-        <Text style={styles.userMessageText}>{message.text}</Text>
-      ) : (
+    <View style={styles.aiMessageContainer}>
+      <View style={styles.aiMessageBubble}>
         <Markdown style={markdownStyles}>{message.text}</Markdown>
-      )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  messageContainer: {
+  userMessageContainer: {
+    alignSelf: 'flex-end',
     maxWidth: '80%',
     marginBottom: Spacing.md,
+  },
+  userMessageBubble: {
+    backgroundColor: Colors.gradientStart,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: Colors.gradientStart,
-  },
-  aiMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.backgroundGray,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 4,
   },
   userMessageText: {
     fontSize: FontSizes.md,
-    color: Colors.textWhite,
     lineHeight: 22,
+    color: Colors.textWhite,
+  },
+  aiMessageContainer: {
+    alignSelf: 'flex-start',
+    maxWidth: '80%',
+    marginBottom: Spacing.md,
+  },
+  aiMessageBubble: {
+    backgroundColor: Colors.backgroundGray,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 16,
   },
 });
 
