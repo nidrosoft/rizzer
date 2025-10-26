@@ -136,11 +136,41 @@ serve(async (req) => {
     console.log('✅ AI response generated in', generationTime, 'ms')
     console.log('📊 Tokens used:', data.usage)
 
+    // Initialize Supabase client with service role
+    const supabase = createClient(
+      SUPABASE_URL!,
+      SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Save the AI message to the database
+    console.log('💾 Saving AI message to database...')
+    const { data: savedMessage, error: saveError } = await supabase
+      .from('rizz_conversation_messages')
+      .insert({
+        conversation_id: conversation_id,
+        user_id: user_id,
+        role: 'assistant',
+        content: aiMessage,
+        model_used: data.model,
+        tokens_used: data.usage.total_tokens,
+        generation_time_ms: generationTime,
+      })
+      .select()
+      .single()
+
+    if (saveError) {
+      console.error('❌ Error saving AI message:', saveError)
+      // Don't fail the request, just log the error
+    } else {
+      console.log('✅ AI message saved to database:', savedMessage.id)
+    }
+
     // Return response
     return new Response(
       JSON.stringify({
         success: true,
         message: aiMessage,
+        message_id: savedMessage?.id || null,
         model_used: data.model,
         tokens_used: data.usage.total_tokens,
         generation_time_ms: generationTime,

@@ -368,9 +368,9 @@ export async function sendMessage(
         'apikey': session?.access_token || '',
       },
       body: JSON.stringify({
-        conversationId: threadId,
-        userMessage: userMessage,
-        dateProfileId: dateProfileId || null,
+        message: userMessage,
+        conversation_id: threadId,
+        user_id: userId,
       }),
     });
 
