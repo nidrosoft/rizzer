@@ -37,6 +37,7 @@ import {
   LogoutCurve,
   Trash,
   Warning2,
+  Archive,
 } from 'iconsax-react-native';
 import { Colors, Spacing, FontSizes, FontWeights } from '@/constants/theme';
 import { normalize } from '@/utils/responsive';
@@ -194,6 +195,11 @@ export default function SettingsScreen() {
             icon={<MessageText1 size={22} color={Colors.text} variant="Outline" />}
             label="AI Chat History"
             onPress={() => router.push('/settings/ai-chat')}
+          />
+          <SettingItem
+            icon={<Archive size={22} color={Colors.text} variant="Outline" />}
+            label="Archived Profiles"
+            onPress={() => router.push('/settings/archived-profiles')}
             showDivider={false}
           />
         </SettingSection>

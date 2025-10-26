@@ -3,12 +3,17 @@
  * Clean orchestration of category detail components
  */
 
-import React, { useState } from 'react';
-import { View, StyleSheet, Clipboard } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Clipboard, Platform, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors, Spacing, FontSizes, FontWeights, BorderRadius } from '@/constants/theme';
+import { normalize } from '@/utils/responsive';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import Toast from '@/components/Toast';
+import { useAuthStore } from '@/store/authStore';
+import { useToast } from '@/contexts/ToastContext';
 import {
   CategoryHeader,
   RizzList,
@@ -16,75 +21,163 @@ import {
   CategoryActionSheet,
   DeleteModal,
 } from '@/components/rizz/category-detail';
+import { getRizzCategory, getRizzLines, updateRizzLine, deleteRizzCategory } from '@/lib/rizzCategories';
+import { generateRizzLines } from '@/lib/rizzGeneration';
+import type { RizzCategory, RizzLine } from '@/lib/rizzCategories';
 
 export default function CategoryDetailScreen() {
   const router = useRouter();
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'info' | 'error'>('success');
+  const params = useLocalSearchParams();
+  const { showToast } = useToast();
+  const user = useAuthStore((state) => state.user);
+  
+  // UI State
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [savedRizzes, setSavedRizzes] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Data State
+  const [category, setCategory] = useState<RizzCategory | null>(null);
+  const [rizzLines, setRizzLines] = useState<RizzLine[]>([]);
+  const [savedRizzIds, setSavedRizzIds] = useState<Set<string>>(new Set());
+  
+  const categoryId = params.id ? parseInt(params.id as string) : null;
 
-  // Mock data - will be replaced with actual data based on category
-  const categoryData = {
-    title: 'Conversation Starters',
-    description: 'My favorite collections of categories on asking her out in a funny way.',
-    color: '#FF6B9D',
-    icon: '😊',
-    rizzes: [
-      'My favorite collections of categories on Asking her out in a funny way.',
-      'Are you a magician? Because whenever I look at you, everyone else disappears.',
-      'Do you believe in love at first sight, or should I walk by again?',
-      'If you were a vegetable, you\'d be a cute-cumber!',
-      'Is your name Google? Because you have everything I\'ve been searching for.',
-      'Do you have a map? I keep getting lost in your eyes.',
-      'I was reading the book of Numbers last night, and I realized I don\'t have yours. Would you mind if we changed that? I promise I\'m not just trying to add you to my collection - you seem genuinely interesting.',
-      'Excuse me, but I think you dropped something: my jaw.',
-      'I\'m not a photographer, but I can definitely picture us together. And honestly, I think we\'d make a pretty amazing team. What do you think about grabbing coffee sometime and seeing if this chemistry is real or if I\'m just being optimistic?',
-      'Are you French? Because Eiffel for you.',
-      'If being beautiful was a crime, you\'d be serving a life sentence without parole. I\'d be your lawyer, but I don\'t think I could defend you - the evidence is just too overwhelming.',
-      'Do you have a Band-Aid? Because I just scraped my knee falling for you, and I think I might need some medical attention. Or at least your phone number so we can discuss treatment options over dinner.',
-    ],
-  };
-
+  // Load category and rizz lines
+  const loadData = useCallback(async () => {
+    if (!categoryId || !user?.id) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Load category details
+      const categoryResult = await getRizzCategory(categoryId, user.id);
+      if (categoryResult.success && categoryResult.data) {
+        setCategory(categoryResult.data);
+      }
+      
+      // Load existing rizz lines
+      const linesResult = await getRizzLines(categoryId, user.id);
+      if (linesResult.success && linesResult.data) {
+        setRizzLines(linesResult.data);
+        
+        // Track saved lines
+        const saved = new Set<string>();
+        linesResult.data.forEach(line => {
+          if (line.is_saved) saved.add(line.id);
+        });
+        setSavedRizzIds(saved);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      showToast('Failed to load category', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [categoryId, user?.id]);
+  
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+  
   const handleBack = () => {
     router.back();
   };
 
-  const handleCopy = (text: string) => {
+  const handleCopy = async (text: string, lineId: string) => {
     Clipboard.setString(text);
-    setToastMessage('Copied to clipboard!');
-    setToastType('info');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
-  };
-
-  const handleSave = (text: string, index: number) => {
-    setSavedRizzes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-        setToastMessage('Removed from collection!');
-      } else {
-        newSet.add(index);
-        setToastMessage('Saved to collection!');
-      }
-      return newSet;
-    });
-    setToastType('success');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
-  };
-
-  const handleRegenerate = () => {
-    setIsGenerating(true);
+    showToast('Copied to clipboard!', 'info');
     
-    setTimeout(() => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    // Update times_copied in database
+    if (user?.id) {
+      const line = rizzLines.find(l => l.id === lineId);
+      if (line) {
+        await updateRizzLine(lineId, {
+          times_copied: line.times_copied + 1,
+        });
+      }
+    }
+  };
+
+  const handleSave = async (lineId: string) => {
+    if (!user?.id) return;
+    
+    const isSaved = savedRizzIds.has(lineId);
+    const newSavedIds = new Set(savedRizzIds);
+    
+    if (isSaved) {
+      newSavedIds.delete(lineId);
+      showToast('Removed from collection!', 'success');
+    } else {
+      newSavedIds.add(lineId);
+      showToast('Saved to collection!', 'success');
+    }
+    
+    setSavedRizzIds(newSavedIds);
+    
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
+    // Update in database
+    await updateRizzLine(lineId, {
+      is_saved: !isSaved,
+      saved_at: !isSaved ? new Date().toISOString() : null,
+    });
+    
+    // Update local state
+    setRizzLines(prev => prev.map(line => 
+      line.id === lineId 
+        ? { ...line, is_saved: !isSaved, saved_at: !isSaved ? new Date().toISOString() : null }
+        : line
+    ));
+  };
+
+  const handleRegenerate = async () => {
+    if (!categoryId || !user?.id || isGenerating) return;
+    
+    try {
+      setIsGenerating(true);
+      
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      
+      console.log('🎯 Generating rizz lines...');
+      
+      // Call AI generation
+      const result = await generateRizzLines(categoryId, user.id);
+      
+      if (result.success && result.data) {
+        console.log(`✅ Generated ${result.data.length} new lines`);
+        
+        // Add new lines to the list (prepend so they appear at top)
+        setRizzLines(prev => [...result.data!, ...prev]);
+        
+        showToast(`Generated ${result.data.length} new rizz lines!`, 'success');
+        
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } else {
+        throw new Error(result.error || 'Failed to generate rizz lines');
+      }
+    } catch (error: any) {
+      console.error('❌ Error generating rizz lines:', error);
+      showToast(error.message || 'Failed to generate rizz lines', 'error');
+      
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } finally {
       setIsGenerating(false);
-      // TODO: Add new rizzes to the list
-    }, 3000);
+    }
   };
 
   const handleMoreOptions = () => {
@@ -94,10 +187,7 @@ export default function CategoryDetailScreen() {
   const handleAddToHome = () => {
     setShowActionSheet(false);
     // TODO: Add to home quick actions
-    setToastMessage('Added to Home Quick Actions!');
-    setToastType('success');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
+    showToast('Added to Home Quick Actions!', 'success');
   };
 
   const handleDeletePress = () => {
@@ -107,60 +197,96 @@ export default function CategoryDetailScreen() {
     }, 300);
   };
 
-  const handleConfirmDelete = () => {
-    setShowDeleteModal(false);
-    // TODO: Delete category
-    setToastMessage('Category deleted successfully');
-    setToastType('success');
-    setShowToast(true);
-    setTimeout(() => {
-      router.back();
-    }, 1000);
+  const handleConfirmDelete = async () => {
+    if (!categoryId) return;
+    
+    try {
+      setIsDeleting(true);
+      setShowDeleteModal(false);
+      
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      
+      const result = await deleteRizzCategory(categoryId);
+      
+      if (result.success) {
+        showToast('Category deleted successfully', 'success');
+        
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        
+        setTimeout(() => {
+          router.back();
+        }, 500);
+      } else {
+        throw new Error(result.error || 'Failed to delete category');
+      }
+    } catch (error: any) {
+      console.error('Error deleting category:', error);
+      showToast(error.message || 'Failed to delete category', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
     <LinearGradient
       colors={['#E6E9EB', '#FFFFFF']}
       style={styles.container}
-      locations={[0, 1]}
     >
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-        <CategoryHeader
-          title={categoryData.title}
-          description={categoryData.description}
-          onBack={handleBack}
-          onMoreOptions={handleMoreOptions}
-        />
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.purple} />
+            <Text style={styles.loadingText}>Loading category...</Text>
+          </View>
+        ) : !category ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Category not found</Text>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Text style={styles.backButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <CategoryHeader
+              title={category.title}
+              description={category.description || ''}
+              onBack={handleBack}
+              onMoreOptions={handleMoreOptions}
+            />
 
-        <RizzList
-          rizzes={categoryData.rizzes}
-          savedRizzes={savedRizzes}
-          isGenerating={isGenerating}
-          onSave={handleSave}
-          onCopy={handleCopy}
-        />
+            <RizzList
+              rizzes={rizzLines.map(line => line.content)}
+              rizzLines={rizzLines}
+              savedRizzIds={savedRizzIds}
+              isGenerating={isGenerating}
+              onSave={handleSave}
+              onCopy={handleCopy}
+            />
 
-        <RegenerateFAB onPress={handleRegenerate} />
+            <RegenerateFAB 
+              onPress={handleRegenerate} 
+              isGenerating={isGenerating}
+              hasExistingLines={rizzLines.length > 0}
+            />
 
-        <CategoryActionSheet
-          visible={showActionSheet}
-          onClose={() => setShowActionSheet(false)}
-          onAddToHome={handleAddToHome}
-          onDelete={handleDeletePress}
-        />
+            <CategoryActionSheet
+              visible={showActionSheet}
+              onClose={() => setShowActionSheet(false)}
+              onAddToHome={handleAddToHome}
+              onDelete={handleDeletePress}
+            />
 
-        <DeleteModal
-          visible={showDeleteModal}
-          onClose={() => setShowDeleteModal(false)}
-          onConfirm={handleConfirmDelete}
-        />
-
-        <Toast 
-          visible={showToast} 
-          message={toastMessage} 
-          type={toastType} 
-          onHide={() => setShowToast(false)} 
-        />
+            <DeleteModal
+              visible={showDeleteModal}
+              onClose={() => setShowDeleteModal(false)}
+              onConfirm={handleConfirmDelete}
+            />
+          </>
+        )}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -172,5 +298,39 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  loadingText: {
+    marginTop: Spacing.md,
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  emptyText: {
+    fontSize: FontSizes.lg,
+    fontWeight: FontWeights.semibold,
+    color: Colors.text,
+    marginBottom: Spacing.lg,
+  },
+  backButton: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.purple,
+    borderRadius: BorderRadius.full,
+  },
+  backButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textWhite,
   },
 });

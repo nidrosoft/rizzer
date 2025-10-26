@@ -16,9 +16,13 @@ export interface RizzCategory {
 
 export interface ChatThread {
   id: string;
-  title: string;
-  lastMessage: string;
-  timestamp: Date;
+  title: string | null;
+  last_message: string | null;
+  lastMessage?: string; // For backward compatibility
+  timestamp?: Date; // For backward compatibility
+  last_message_at: string;
+  created_at: string;
+  message_count: number;
 }
 
 export interface ChatGroup {
@@ -39,6 +43,7 @@ export interface RizzTabsProps {
 export interface RizzCategoriesGridProps {
   categories: RizzCategory[];
   onCategoryPress: (categoryId: number) => void;
+  onCategoryLongPress?: (categoryId: number, categoryTitle: string) => void;
 }
 
 export interface ChatThreadListProps {

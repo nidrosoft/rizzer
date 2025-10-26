@@ -15,6 +15,7 @@ interface CreateRizzBottomSheetProps {
   visible: boolean;
   onClose: () => void;
   onCreate: (data: RizzCategoryData) => void;
+  isCreating?: boolean;
 }
 
 export interface RizzCategoryData {
@@ -45,7 +46,7 @@ const PRESET_COLORS = [
 
 const COMMON_EMOJIS = ['😊', '❤️', '🔥', '💪', '✨', '🎯', '💯', '🌟', '😎', '💖', '🎨', '🚀', '💋', '🌹', '💝', '🎭'];
 
-export default function CreateRizzBottomSheet({ visible, onClose, onCreate }: CreateRizzBottomSheetProps) {
+export default function CreateRizzBottomSheet({ visible, onClose, onCreate, isCreating = false }: CreateRizzBottomSheetProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState('😊');
@@ -226,9 +227,9 @@ export default function CreateRizzBottomSheet({ visible, onClose, onCreate }: Cr
           {/* Create Button */}
           <View style={styles.footer}>
             <GradientButton
-              title="Create Rizz Category"
+              title={isCreating ? "Creating..." : "Create Rizz Category"}
               onPress={handleCreate}
-              disabled={!isValid}
+              disabled={!isValid || isCreating}
               fullWidth
             />
           </View>

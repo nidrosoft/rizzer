@@ -9,17 +9,28 @@ import RizzCard from './RizzCard';
 import RizzLoadingCard from '@/components/rizz/RizzLoadingCard';
 import { Spacing } from '@/constants/theme';
 
+interface RizzLine {
+  id: string;
+  content: string;
+  is_saved?: boolean;
+  confidence_score?: number;
+  tags?: string[];
+  tone?: string;
+}
+
 interface RizzListProps {
   rizzes: string[];
-  savedRizzes: Set<number>;
+  rizzLines?: RizzLine[];
+  savedRizzIds?: Set<string>;
   isGenerating: boolean;
-  onSave: (text: string, index: number) => void;
-  onCopy: (text: string) => void;
+  onSave: (lineId: string) => void;
+  onCopy: (text: string, lineId: string) => void;
 }
 
 export default function RizzList({
   rizzes,
-  savedRizzes,
+  rizzLines = [],
+  savedRizzIds = new Set(),
   isGenerating,
   onSave,
   onCopy,
@@ -38,15 +49,28 @@ export default function RizzList({
         </>
       )}
       
-      {rizzes.map((rizz, index) => (
-        <RizzCard
-          key={index}
-          text={rizz}
-          isSaved={savedRizzes.has(index)}
-          onSave={() => onSave(rizz, index)}
-          onCopy={() => onCopy(rizz)}
-        />
-      ))}
+      {rizzLines.length > 0 ? (
+        rizzLines.map((line) => (
+          <RizzCard
+            key={line.id}
+            text={line.content}
+            isSaved={savedRizzIds.has(line.id)}
+            confidenceScore={line.confidence_score || undefined}
+            onSave={() => onSave(line.id)}
+            onCopy={() => onCopy(line.content, line.id)}
+          />
+        ))
+      ) : (
+        !isGenerating && rizzes.map((rizz, index) => (
+          <RizzCard
+            key={index}
+            text={rizz}
+            isSaved={false}
+            onSave={() => {}}
+            onCopy={() => onCopy(rizz, `temp-${index}`)}
+          />
+        ))
+      )}
     </ScrollView>
   );
 }

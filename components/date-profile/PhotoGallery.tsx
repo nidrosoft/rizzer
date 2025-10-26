@@ -18,6 +18,9 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
   const handleAddPhoto = () => {
     if (Platform.OS === 'ios') {
@@ -49,7 +52,8 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      quality: 0.8,
+      quality: 1.0,
+      selectionLimit: 10,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -64,10 +68,15 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
         photos: photoUris
       });
       
-      // Pass all selected photo URIs to parent
-      onAddPhoto(photoUris);
-      
       setShowUploadModal(false);
+      setIsUploading(true);
+      setUploadProgress({ current: 0, total: photoUris.length });
+      
+      // Pass all selected photo URIs to parent
+      await onAddPhoto(photoUris);
+      
+      setIsUploading(false);
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -84,7 +93,8 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
+      quality: 1.0,
+      allowsEditing: false,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -107,24 +117,17 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    Alert.alert(
-      'Delete Photo',
-      'Are you sure you want to delete this photo?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            if (Platform.OS === 'ios') {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }
-            // TODO: Delete from server
-            setShowPhotoViewer(false);
-          },
-        },
-      ]
-    );
+    // Show delete confirmation inside photo viewer
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeletePhoto = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    // TODO: Delete from server
+    setShowDeleteConfirm(false);
+    setShowPhotoViewer(false);
   };
 
   return (
@@ -144,19 +147,42 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
         </TouchableOpacity>
       </View>
 
-      {photos.length > 0 ? (
-        <View style={styles.photosGrid}>
-          {photos.map((photo, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.photoItem}
-              activeOpacity={0.8}
-              onPress={() => handleViewPhoto(index)}
-            >
-              <Image source={{ uri: photo }} style={styles.photo} />
-            </TouchableOpacity>
-          ))}
+      {isUploading && (
+        <View style={styles.uploadingContainer}>
+          <Text style={styles.uploadingText}>
+            Uploading {uploadProgress.current} of {uploadProgress.total} photos...
+          </Text>
         </View>
+      )}
+
+      {photos.length > 0 ? (
+        <TouchableOpacity 
+          activeOpacity={0.95}
+          onPress={() => handleViewPhoto(0)}
+        >
+          <ScrollView 
+            style={styles.photosScrollView}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled={true}
+          >
+            <View style={styles.photosGrid}>
+              {photos.map((photo, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.photoItem}
+                  activeOpacity={0.8}
+                  onPress={() => handleViewPhoto(index)}
+                >
+                  <Image 
+                    source={{ uri: photo }} 
+                    style={styles.photo}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </TouchableOpacity>
       ) : (
         <View style={styles.emptyState}>
           <Gallery size={48} color={Colors.textSecondary} variant="Outline" />
@@ -218,34 +244,19 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
       {/* Photo Viewer Modal */}
       <Modal
         visible={showPhotoViewer}
-        transparent
+        transparent={true}
         animationType="fade"
         onRequestClose={() => setShowPhotoViewer(false)}
+        statusBarTranslucent
       >
         <View style={styles.photoViewerOverlay}>
-          <View style={styles.photoViewerHeader}>
-            <TouchableOpacity
-              style={styles.photoViewerButton}
-              onPress={() => setShowPhotoViewer(false)}
-              activeOpacity={0.7}
-            >
-              <CloseCircle size={32} color={Colors.textWhite} variant="Bold" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.photoViewerButton}
-              onPress={handleDeletePhoto}
-              activeOpacity={0.7}
-            >
-              <Trash size={28} color={Colors.textWhite} variant="Bold" />
-            </TouchableOpacity>
-          </View>
-
           <ScrollView
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             style={styles.photoViewerScroll}
             contentOffset={{ x: selectedPhotoIndex * SCREEN_WIDTH, y: 0 }}
+            scrollEnabled={true}
           >
             {photos.map((photo, index) => (
               <View key={index} style={[styles.photoViewerPage, { width: SCREEN_WIDTH }]}>
@@ -254,11 +265,74 @@ export default function PhotoGallery({ photos, onAddPhoto, onViewPhoto }: PhotoG
             ))}
           </ScrollView>
 
+          <View style={styles.photoViewerHeader} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.photoViewerButton}
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setShowPhotoViewer(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <CloseCircle size={32} color={Colors.textWhite} variant="Bold" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.photoViewerButton}
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                handleDeletePhoto();
+              }}
+              activeOpacity={0.7}
+            >
+              <Trash size={28} color={Colors.textWhite} variant="Bold" />
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.photoViewerFooter}>
             <Text style={styles.photoViewerCounter}>
               {selectedPhotoIndex + 1} / {photos.length}
             </Text>
           </View>
+
+          {/* Delete Confirmation Modal - Inside Photo Viewer */}
+          {showDeleteConfirm && (
+            <View style={styles.deleteModalOverlay}>
+              <View style={styles.deleteModal}>
+                <View style={styles.deleteModalIcon}>
+                  <Trash size={24} color="#FF4444" variant="Bold" />
+                </View>
+                <Text style={styles.deleteModalTitle}>Delete this photo?</Text>
+                <Text style={styles.deleteModalMessage}>
+                  This photo will be permanently removed from the gallery.
+                </Text>
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={confirmDeletePhoto}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[Colors.gradientStart, Colors.gradientEnd]}
+                    style={styles.deleteButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.deleteButtonText}>Yes, delete</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowDeleteConfirm(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
       </Modal>
     </>
@@ -300,6 +374,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  photosScrollView: {
+    maxHeight: 400,
+  },
   photosGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -310,10 +387,12 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
+    backgroundColor: Colors.backgroundGray,
   },
   photo: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -419,17 +498,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
   },
   photoViewerHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
+    paddingTop: Spacing.xl + 40,
     paddingBottom: Spacing.md,
+    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   photoViewerButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 22,
   },
   photoViewerScroll: {
     flex: 1,
@@ -443,12 +530,106 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   photoViewerFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingVertical: Spacing.xl,
     alignItems: 'center',
+    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   photoViewerCounter: {
     fontSize: FontSizes.md,
     fontWeight: FontWeights.semibold,
     color: Colors.textWhite,
+  },
+  uploadingContainer: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.backgroundGray,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  uploadingText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+    color: Colors.purple,
+    textAlign: 'center',
+  },
+  deleteModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  deleteModal: {
+    backgroundColor: Colors.background,
+    borderRadius: 24,
+    padding: Spacing.xl,
+    marginHorizontal: Spacing.xl,
+    maxWidth: 340,
+    width: '85%',
+    position: 'relative',
+  },
+  deleteModalIcon: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  deleteModalTitle: {
+    fontSize: 22,
+    fontWeight: FontWeights.bold,
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+    textAlign: 'left',
+    lineHeight: 28,
+  },
+  deleteModalMessage: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    textAlign: 'left',
+    lineHeight: 20,
+    marginBottom: Spacing.xl,
+  },
+  deleteButton: {
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    marginBottom: Spacing.sm,
+  },
+  deleteButtonGradient: {
+    paddingVertical: Spacing.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.bold,
+    color: Colors.textWhite,
+  },
+  modalCancelButton: {
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.semibold,
+    color: Colors.purple,
   },
 });

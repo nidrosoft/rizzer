@@ -13,9 +13,14 @@ import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius, Shadows } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
-import { getDateProfileById } from '@/lib/dateProfiles';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/contexts/ToastContext';
+import { getDateProfileById, archiveDateProfile, deleteDateProfile, addProfilePhoto, getProfilePhotos } from '@/lib/dateProfiles';
 import { DateProfileData } from '@/types/dateProfile';
 import { fetchFavorites, addFavorite, deleteFavorite, Favorite } from '@/lib/favorites';
+import { uploadGalleryPhoto } from '@/lib/storage';
+import { getMemories } from '@/lib/memories';
+import { getGiftIdeas, getGiftHistory } from '@/lib/dateProfileGifts';
 
 // Components
 import ProfileHeader from '@/components/date-profile/ProfileHeader';
@@ -24,6 +29,9 @@ import InterestsCard from '@/components/date-profile/InterestsCardNew';
 import FavoritesCard from '@/components/date-profile/FavoritesCard';
 import QuickNotesCard from '@/components/date-profile/QuickNotesCard';
 import PhotoGallery from '@/components/date-profile/PhotoGallery';
+import EditPhotoModal from '@/components/date-profile/EditPhotoModal';
+import UpdateStatusModal from '@/components/date-profile/UpdateStatusModal';
+import ErrorModal from '@/components/ui/ErrorModal';
 
 // Data
 import { getProfileCategories } from '@/data/dateProfileData';
@@ -32,6 +40,7 @@ export default function DateProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const user = useAuthStore((state) => state.user);
+  const { showToast } = useToast();
   
   // State
   const [profile, setProfile] = useState<DateProfileData | null>(null);
@@ -39,8 +48,15 @@ export default function DateProfileScreen() {
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [memoriesCount, setMemoriesCount] = useState(0);
+  const [giftsCount, setGiftsCount] = useState(0);
   
-  const categories = getProfileCategories();
+  // Get categories and update counts from database
+  const categories = getProfileCategories().map(cat => {
+    if (cat.id === 'memories') return { ...cat, count: memoriesCount };
+    if (cat.id === 'gifts') return { ...cat, count: giftsCount };
+    return cat;
+  });
   
   // Fetch profile data from database
   useEffect(() => {
@@ -57,15 +73,20 @@ export default function DateProfileScreen() {
         if (success && data) {
           setProfile(data);
           setError(null);
+          setShowErrorModal(false);
           
-          // Fetch favorites for this profile
+          // Fetch favorites, memories count, and gifts count for this profile
           loadFavorites(id as string);
+          loadMemoriesCount(id as string);
+          loadGiftsCount(id as string);
         } else {
           setError(fetchError || 'Failed to load profile');
+          setShowErrorModal(true);
         }
       } catch (err: any) {
         console.error('Error loading profile:', err);
         setError(err.message);
+        setShowErrorModal(true);
       } finally {
         setIsLoading(false);
       }
@@ -90,10 +111,43 @@ export default function DateProfileScreen() {
     }
   };
 
+  // Load memories count from database
+  const loadMemoriesCount = async (profileId: string) => {
+    try {
+      const { success, memories } = await getMemories(profileId);
+      
+      if (success && memories) {
+        setMemoriesCount(memories.length);
+      }
+    } catch (err) {
+      console.error('Error loading memories count:', err);
+    }
+  };
+
+  // Load gifts count from database
+  const loadGiftsCount = async (profileId: string) => {
+    try {
+      const [ideasResult, historyResult] = await Promise.all([
+        getGiftIdeas(profileId),
+        getGiftHistory(profileId),
+      ]);
+      
+      const ideasCount = ideasResult.success && ideasResult.data ? ideasResult.data.length : 0;
+      const historyCount = historyResult.success && historyResult.data ? historyResult.data.length : 0;
+      
+      setGiftsCount(ideasCount + historyCount);
+    } catch (err) {
+      console.error('Error loading gifts count:', err);
+    }
+  };
+
   // State for modals
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showEditPhoto, setShowEditPhoto] = useState(false);
+  const [showUpdateStatus, setShowUpdateStatus] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   // Handlers
   const handleBack = () => {
@@ -117,22 +171,52 @@ export default function DateProfileScreen() {
     setTimeout(() => setShowArchiveModal(true), 300);
   };
 
-  const confirmDelete = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const confirmDelete = async () => {
+    if (!profile?.id || !user?.id) return;
+    
+    try {
+      const { success, error } = await deleteDateProfile(profile.id, user.id);
+      
+      if (success) {
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        setShowDeleteModal(false);
+        
+        // Navigate back after short delay
+        setTimeout(() => router.back(), 500);
+      } else {
+        console.error('Failed to delete profile:', error);
+        // TODO: Show error toast
+      }
+    } catch (err) {
+      console.error('Error deleting profile:', err);
+      // TODO: Show error toast
     }
-    setShowDeleteModal(false);
-    // TODO: Delete profile from database
-    setTimeout(() => router.back(), 500);
   };
 
-  const confirmArchive = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const confirmArchive = async () => {
+    if (!profile?.id || !user?.id) return;
+    
+    try {
+      const { success, error } = await archiveDateProfile(profile.id, user.id);
+      
+      if (success) {
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        setShowArchiveModal(false);
+        
+        // Navigate back after short delay
+        setTimeout(() => router.back(), 500);
+      } else {
+        console.error('Failed to archive profile:', error);
+        // TODO: Show error toast
+      }
+    } catch (err) {
+      console.error('Error archiving profile:', err);
+      // TODO: Show error toast
     }
-    setShowArchiveModal(false);
-    // TODO: Archive profile in database
-    setTimeout(() => router.back(), 500);
   };
 
   const handleCategoryPress = (categoryId: string) => {
@@ -199,10 +283,12 @@ export default function DateProfileScreen() {
     }
   };
 
-  const handleAddPhoto = (photoUris: string | string[]) => {
+  const handleAddPhoto = async (photoUris: string | string[]) => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    
+    if (!profile?.id || !user?.id) return;
     
     const uris = Array.isArray(photoUris) ? photoUris : [photoUris];
     
@@ -211,7 +297,108 @@ export default function DateProfileScreen() {
       uris
     });
     
-    // TODO: Upload photos to Supabase storage and save to database
+    try {
+      // Get current photo count for order_index
+      const currentPhotoCount = profile.photos.length;
+      const uploadedUrls: string[] = [];
+      
+      // Upload all photos
+      for (let i = 0; i < uris.length; i++) {
+        const uri = uris[i];
+        
+        // Upload to Supabase Storage (preserves aspect ratio for gallery)
+        const { success, url, error: uploadError } = await uploadGalleryPhoto(
+          uri,
+          user.id,
+          profile.id
+        );
+        
+        if (!success || !url) {
+          console.error('Failed to upload photo:', uploadError);
+          continue;
+        }
+        
+        // Save to database
+        const { success: dbSuccess, error: dbError } = await addProfilePhoto(
+          profile.id,
+          url,
+          currentPhotoCount + i
+        );
+        
+        if (!dbSuccess) {
+          console.error('Failed to save photo to database:', dbError);
+          continue;
+        }
+        
+        uploadedUrls.push(url);
+      }
+      
+      // Update local state once with all uploaded photos
+      if (uploadedUrls.length > 0) {
+        setProfile({
+          ...profile,
+          photos: [...profile.photos, ...uploadedUrls],
+        });
+        
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+      
+      console.log('✅ Photos uploaded successfully:', uploadedUrls.length);
+    } catch (err) {
+      console.error('Error uploading photos:', err);
+    }
+  };
+
+  const handlePhotoUpdated = (photoUri: string) => {
+    if (!profile) return;
+    
+    // Update local state
+    setProfile({
+      ...profile,
+      basicInfo: {
+        ...profile.basicInfo,
+        photo: photoUri,
+      },
+    });
+    
+    if (Platform.OS === 'ios') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleStatusUpdate = async (newStatus: string) => {
+    if (!profile) return;
+    
+    try {
+      // Update database
+      const { error } = await supabase
+        .from('date_profiles')
+        .update({ relationship_stage: newStatus })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setProfile({
+        ...profile,
+        basicInfo: {
+          ...profile.basicInfo,
+          status: newStatus as any,
+        },
+      });
+
+      // Show success toast
+      showToast('Status updated!', 'success');
+
+      if (Platform.OS === 'ios') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error: any) {
+      console.error('Error updating status:', error);
+      showToast('Failed to update status', 'error');
+    }
   };
 
   const handleAddNote = () => {
@@ -246,10 +433,23 @@ export default function DateProfileScreen() {
   
   // Error state
   if (error || !profile) {
+    // Convert technical error to user-friendly message
+    let friendlyMessage = 'Profile not found';
+    
+    if (error) {
+      if (error.includes('Network') || error.includes('network') || error.includes('fetch') || error.includes('TypeError')) {
+        friendlyMessage = "You're not connected to the internet. Please check your connection and try again.";
+      } else if (error.includes('timeout')) {
+        friendlyMessage = "The request is taking too long. Please check your connection and try again.";
+      } else {
+        friendlyMessage = "We're having trouble loading this profile. Please try again.";
+      }
+    }
+    
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error || 'Profile not found'}</Text>
+          <Text style={styles.errorText}>{friendlyMessage}</Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -290,7 +490,13 @@ export default function DateProfileScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Profile Header */}
-        <ProfileHeader profile={profile} onBack={handleBack} onEdit={handleEdit} />
+        <ProfileHeader 
+          profile={profile} 
+          onBack={handleBack} 
+          onEdit={handleEdit}
+          onEditPhoto={() => setShowEditPhoto(true)}
+          onStatusUpdate={() => setShowUpdateStatus(true)}
+        />
 
         {/* Content Container */}
         <View style={styles.content}>
@@ -463,6 +669,66 @@ export default function DateProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Photo Modal */}
+      <EditPhotoModal
+        visible={showEditPhoto}
+        onClose={() => setShowEditPhoto(false)}
+        currentPhoto={profile.basicInfo.photo}
+        onPhotoUpdated={handlePhotoUpdated}
+        profileId={profile.id}
+        profileName={profile.basicInfo.name}
+        userId={user?.id || ''}
+      />
+
+      {/* Update Status Modal */}
+      <UpdateStatusModal
+        visible={showUpdateStatus}
+        onClose={() => setShowUpdateStatus(false)}
+        currentStatus={profile.basicInfo.status}
+        onStatusUpdate={handleStatusUpdate}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        visible={showErrorModal}
+        onClose={() => {
+          setShowErrorModal(false);
+          router.back();
+        }}
+        onRetry={async () => {
+          if (!user?.id || !id) return;
+          
+          setShowErrorModal(false);
+          setIsLoading(true);
+          
+          try {
+            const { success, data, error: fetchError } = await getDateProfileById(id as string, user.id);
+            
+            if (success && data) {
+              setProfile(data);
+              setError(null);
+              loadFavorites(id as string);
+              loadMemoriesCount(id as string);
+              loadGiftsCount(id as string);
+            } else {
+              setError(fetchError || 'Failed to load profile');
+              setShowErrorModal(true);
+            }
+          } catch (err: any) {
+            console.error('Error loading profile:', err);
+            setError(err.message);
+            setShowErrorModal(true);
+          } finally {
+            setIsLoading(false);
+          }
+        }}
+        title="Connection Issue"
+        message={error?.includes('Network') || error?.includes('network') || error?.includes('fetch') 
+          ? "Unable to load profile. Please check your internet connection and try again."
+          : "Unable to load profile data. Please try again."}
+        showRetry={true}
+      />
     </SafeAreaView>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * RizzTabs Component
- * Tab switcher for My Rizz and Genius Rizz
+ * Tab switcher for My Rizz and Rizz Coach
  */
 
 import React from 'react';
@@ -33,7 +33,7 @@ export default function RizzTabs({ activeTab, onTabChange }: RizzTabsProps) {
         onPress={() => handleTabPress('geniusRizz')}
       >
         <Text style={[styles.tabText, activeTab === 'geniusRizz' && styles.activeTabText]}>
-          Genius Rizz
+          Rizz Coach
         </Text>
         {activeTab === 'geniusRizz' && <View style={styles.tabIndicator} />}
       </TouchableOpacity>

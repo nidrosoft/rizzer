@@ -43,6 +43,45 @@ const INTEREST_CATEGORIES = [
   },
 ];
 
+// Soft pastel colors for each category
+const CATEGORY_COLORS: { [key: string]: { bg: string; border: string; text: string } } = {
+  'Activities': {
+    bg: 'rgba(139, 92, 246, 0.1)',    // Soft Purple
+    border: 'rgba(139, 92, 246, 0.2)',
+    text: '#7C3AED',
+  },
+  'Food & Drink': {
+    bg: 'rgba(251, 146, 60, 0.1)',    // Soft Orange
+    border: 'rgba(251, 146, 60, 0.2)',
+    text: '#EA580C',
+  },
+  'Entertainment': {
+    bg: 'rgba(236, 72, 153, 0.1)',    // Soft Pink
+    border: 'rgba(236, 72, 153, 0.2)',
+    text: '#DB2777',
+  },
+  'Music': {
+    bg: 'rgba(59, 130, 246, 0.1)',    // Soft Blue
+    border: 'rgba(59, 130, 246, 0.2)',
+    text: '#2563EB',
+  },
+  'Sports': {
+    bg: 'rgba(34, 197, 94, 0.1)',     // Soft Green
+    border: 'rgba(34, 197, 94, 0.2)',
+    text: '#16A34A',
+  },
+  'Creative': {
+    bg: 'rgba(168, 85, 247, 0.1)',    // Soft Violet
+    border: 'rgba(168, 85, 247, 0.2)',
+    text: '#9333EA',
+  },
+  'Lifestyle': {
+    bg: 'rgba(14, 165, 233, 0.1)',    // Soft Cyan
+    border: 'rgba(14, 165, 233, 0.2)',
+    text: '#0284C7',
+  },
+};
+
 export default function InterestsCard({ interests, onEdit }: InterestsCardProps) {
   // Organize hobbies by category
   const organizeHobbiesByCategory = () => {
@@ -58,6 +97,11 @@ export default function InterestsCard({ interests, onEdit }: InterestsCardProps)
     });
     
     return organized;
+  };
+  
+  // Get color for a specific category
+  const getCategoryColor = (categoryName: string) => {
+    return CATEGORY_COLORS[categoryName] || CATEGORY_COLORS['Activities']; // Default to purple
   };
   
   const categorizedHobbies = organizeHobbiesByCategory();
@@ -87,18 +131,30 @@ export default function InterestsCard({ interests, onEdit }: InterestsCardProps)
 
       {/* Interests by Category */}
       {Object.keys(categorizedHobbies).length > 0 ? (
-        Object.entries(categorizedHobbies).map(([categoryName, categoryHobbies]) => (
-          <View key={categoryName} style={styles.section}>
-            <Text style={styles.sectionLabel}>{categoryName}</Text>
-            <View style={styles.tagsContainer}>
-              {categoryHobbies.map((hobby, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{hobby}</Text>
-                </View>
-              ))}
+        Object.entries(categorizedHobbies).map(([categoryName, categoryHobbies]) => {
+          const color = getCategoryColor(categoryName);
+          return (
+            <View key={categoryName} style={styles.section}>
+              <Text style={styles.sectionLabel}>{categoryName}</Text>
+              <View style={styles.tagsContainer}>
+                {categoryHobbies.map((hobby, index) => (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.tag,
+                      {
+                        backgroundColor: color.bg,
+                        borderColor: color.border,
+                      }
+                    ]}
+                  >
+                    <Text style={[styles.tagText, { color: color.text }]}>{hobby}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
-        ))
+          );
+        })
       ) : (
         <View style={styles.emptyState}>
           <Heart size={48} color={Colors.textSecondary} variant="Outline" />
@@ -162,15 +218,12 @@ const styles = StyleSheet.create({
   tag: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    backgroundColor: 'rgba(255, 107, 157, 0.1)',
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 157, 0.2)',
   },
   tagText: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.medium,
-    color: Colors.text,
   },
   emptyState: {
     paddingVertical: Spacing.xl,

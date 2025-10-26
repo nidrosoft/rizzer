@@ -57,7 +57,7 @@ export default function CategoryHeader({
           </Svg>
         </TouchableOpacity>
         
-        <Text style={styles.title}>{title}</Text>
+        <View style={styles.spacer} />
         
         <TouchableOpacity 
           style={styles.navButton}
@@ -80,7 +80,10 @@ export default function CategoryHeader({
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.description}>{description}</Text>
+        <Text style={styles.title}>{title}</Text>
+        {description ? (
+          <Text style={styles.description}>{description}</Text>
+        ) : null}
       </View>
     </LinearGradient>
   );
@@ -107,21 +110,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: normalize(20),
-    fontWeight: FontWeights.bold,
-    color: Colors.text,
+  spacer: {
+    flex: 1,
   },
   content: {
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  title: {
+    fontSize: normalize(24),
+    fontWeight: FontWeights.bold,
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: Spacing.xs,
   },
   description: {
-    fontSize: normalize(16),
+    fontSize: normalize(15),
     color: Colors.textWhite,
     textAlign: 'center',
-    lineHeight: normalize(22),
-    paddingHorizontal: Spacing.lg,
+    lineHeight: normalize(20),
+    opacity: 0.9,
   },
 });

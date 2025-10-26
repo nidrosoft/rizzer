@@ -76,6 +76,8 @@ export interface DateProfileHeaderProps {
   profile: DateProfileData;
   onBack: () => void;
   onEdit: () => void;
+  onEditPhoto?: () => void;
+  onStatusUpdate?: () => void;
 }
 
 export interface QuickStatsBarProps {

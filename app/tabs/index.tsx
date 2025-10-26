@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing } from '@/constants/theme';
 import DateProfileIntroModal from '@/components/DateProfileIntroModal';
+import ErrorModal from '@/components/ui/ErrorModal';
 import { useToast } from '@/contexts/ToastContext';
 import { useDateProfileStore } from '@/store/dateProfileStore';
 import { useDateProfileCreationStore } from '@/store/dateProfileCreationStore';
@@ -61,6 +62,7 @@ export default function HomeScreen() {
   // Local State
   const [showIntroModal, setShowIntroModal] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
+  const [showErrorModal, setShowErrorModal] = useState(false);
   
   // Transform profiles to home format
   const transformedProfiles = profiles.map((profile) => ({
@@ -82,14 +84,25 @@ export default function HomeScreen() {
       if (success && data) {
         setProfiles(data);
         setError(null);
+        setShowErrorModal(false);
       } else {
         setError(fetchError || 'Failed to load profiles');
-        showToast(fetchError || 'Failed to load profiles', 'error');
+        // Show ErrorModal for network errors, toast for others
+        if (fetchError?.includes('Network') || fetchError?.includes('network') || fetchError?.includes('fetch') || fetchError?.includes('TypeError')) {
+          setShowErrorModal(true);
+        } else {
+          showToast(fetchError || 'Failed to load profiles', 'error');
+        }
       }
     } catch (err: any) {
       console.error('Error loading profiles:', err);
       setError(err.message);
-      showToast('Failed to load profiles', 'error');
+      // Show ErrorModal for network errors
+      if (err.message?.includes('Network') || err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('TypeError')) {
+        setShowErrorModal(true);
+      } else {
+        showToast('Failed to load profiles', 'error');
+      }
     } finally {
       setLoading(false);
       setInitialLoad(false);
@@ -259,6 +272,15 @@ export default function HomeScreen() {
         onContinue={handleContinueToFlow}
       />
 
+      {/* Error Modal */}
+      <ErrorModal
+        visible={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        onRetry={loadProfiles}
+        title="Connection Issue"
+        message="Unable to load your profiles. Please check your internet connection and try again."
+        showRetry={true}
+      />
     </SafeAreaView>
   );
 }

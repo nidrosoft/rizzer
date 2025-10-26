@@ -14,11 +14,12 @@ import { normalize } from '@/utils/responsive';
 interface RizzCardProps {
   text: string;
   isSaved: boolean;
+  confidenceScore?: number;
   onSave: () => void;
   onCopy: () => void;
 }
 
-export default function RizzCard({ text, isSaved, onSave, onCopy }: RizzCardProps) {
+export default function RizzCard({ text, isSaved, confidenceScore, onSave, onCopy }: RizzCardProps) {
   const handleSave = () => {
     if (Platform.OS === 'ios') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -35,7 +36,14 @@ export default function RizzCard({ text, isSaved, onSave, onCopy }: RizzCardProp
 
   return (
     <View style={styles.card}>
-      <Text style={styles.text}>{text}</Text>
+      <View style={styles.content}>
+        <Text style={styles.text}>{text}</Text>
+        {confidenceScore !== undefined && (
+          <View style={styles.confidenceBadge}>
+            <Text style={styles.confidenceText}>{confidenceScore}%</Text>
+          </View>
+        )}
+      </View>
       <View style={styles.actions}>
         <TouchableOpacity 
           style={styles.actionButton}
@@ -83,12 +91,28 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
-  text: {
+  content: {
     flex: 1,
+    marginRight: Spacing.md,
+  },
+  text: {
     fontSize: normalize(16),
     color: Colors.text,
     lineHeight: normalize(22),
-    marginRight: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  confidenceBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.purple,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.xs,
+  },
+  confidenceText: {
+    fontSize: normalize(11),
+    fontWeight: '600',
+    color: Colors.textWhite,
   },
   actions: {
     flexDirection: 'row',

@@ -23,6 +23,7 @@ import SearchBar from '@/components/ui/SearchBar';
 // Gifts-specific Components
 import InvestigationList from '@/components/gifts/InvestigationList';
 import StartGiftModal from '@/components/gifts/StartGiftModal';
+import ErrorModal from '@/components/ui/ErrorModal';
 
 type SortOption = 'recent' | 'upcoming' | 'name';
 type FilterOption = 'all' | 'active' | 'paused' | 'pending';
@@ -36,6 +37,8 @@ export default function GiftsScreen() {
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Filter and sort investigations
   const filteredInvestigations = useMemo(() => {
@@ -277,6 +280,20 @@ export default function GiftsScreen() {
         visible={showStartModal}
         onClose={handleCloseModal}
         onStart={handleStartInvestigation}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        visible={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        onRetry={() => {
+          setShowErrorModal(false);
+          // Retry loading data
+          // TODO: Add actual data fetching when backend is connected
+        }}
+        title="Connection Issue"
+        message="Unable to load your investigations. Please check your internet connection and try again."
+        showRetry={true}
       />
     </View>
   );

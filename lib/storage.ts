@@ -226,8 +226,30 @@ export async function validateImage(uri: string): Promise<{
 }
 
 /**
- * Upload date profile photo
- * Specialized function for date profile photos with proper folder structure
+ * Compress image for gallery (preserves aspect ratio)
+ */
+export async function compressImageForGallery(uri: string) {
+  try {
+    // Get image info first
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    
+    // Just compress without resizing to preserve aspect ratio
+    const manipulatedImage = await ImageManipulator.manipulateAsync(
+      uri,
+      [], // No resize, keep original dimensions
+      { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
+    );
+
+    return { success: true, uri: manipulatedImage.uri };
+  } catch (error: any) {
+    console.error('Error compressing image for gallery:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Upload date profile photo (for profile picture - crops to square)
  */
 export async function uploadDateProfilePhoto(
   uri: string,
@@ -274,5 +296,147 @@ export async function uploadDateProfilePhoto(
   } catch (error: any) {
     console.error('❌ Failed to upload date profile photo:', error);
     return { success: false, error: error.message || 'Failed to upload photo' };
+  }
+}
+
+/**
+ * Upload gallery photo (preserves original aspect ratio)
+ */
+export async function uploadGalleryPhoto(
+  uri: string,
+  userId: string,
+  profileId: string
+): Promise<{
+  success: boolean;
+  url?: string;
+  error?: string;
+}> {
+  try {
+    // Compress without resizing to preserve aspect ratio
+    const compressed = await compressImageForGallery(uri);
+    if (!compressed.success) {
+      return { success: false, error: compressed.error };
+    }
+
+    // Read file as ArrayBuffer
+    const response = await fetch(compressed.uri!);
+    const blob = await response.blob();
+    const arrayBuffer = await new Response(blob).arrayBuffer();
+
+    // Generate unique filename with gallery folder
+    const timestamp = Date.now();
+    const filename = `${userId}/date-profiles/${profileId}/gallery/${timestamp}.jpg`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(filename, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(filename);
+
+    console.log('✅ Gallery photo uploaded successfully');
+    return { success: true, url: urlData.publicUrl };
+  } catch (error: any) {
+    console.error('❌ Failed to upload gallery photo:', error);
+    return { success: false, error: error.message || 'Failed to upload photo' };
+  }
+}
+
+/**
+ * Upload memory photo (preserves original aspect ratio)
+ * Storage path: {userId}/date-profiles/{profileId}/memories/{timestamp}.jpg
+ */
+export async function uploadMemoryPhoto(
+  uri: string,
+  profileId: string
+): Promise<{
+  success: boolean;
+  url?: string;
+  error?: string;
+}> {
+  try {
+    // Compress without resizing to preserve aspect ratio
+    const compressed = await compressImageForGallery(uri);
+    if (!compressed.success) {
+      return { success: false, error: compressed.error };
+    }
+
+    // Read file as ArrayBuffer
+    const response = await fetch(compressed.uri!);
+    const blob = await response.blob();
+    const arrayBuffer = await new Response(blob).arrayBuffer();
+
+    // Generate unique filename with memories folder
+    // Note: We extract userId from the profile relationship in the database
+    // For now, using a simpler path structure
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(7);
+    const filename = `date-profiles/${profileId}/memories/${timestamp}-${random}.jpg`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(filename, arrayBuffer, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(filename);
+
+    console.log('✅ Memory photo uploaded successfully');
+    return { success: true, url: urlData.publicUrl };
+  } catch (error: any) {
+    console.error('❌ Failed to upload memory photo:', error);
+    return { success: false, error: error.message || 'Failed to upload photo' };
+  }
+}
+
+/**
+ * Delete memory photo from storage
+ * Extracts filename from URL and removes from bucket
+ */
+export async function deleteMemoryPhoto(photoUrl: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    // Extract filename from URL
+    // URL format: https://.../storage/v1/object/public/user-photos/date-profiles/{profileId}/memories/{timestamp}.jpg
+    const urlParts = photoUrl.split('/');
+    const bucketIndex = urlParts.findIndex(part => part === STORAGE_BUCKET);
+    
+    if (bucketIndex === -1) {
+      throw new Error('Invalid photo URL format');
+    }
+
+    // Get everything after the bucket name
+    const filename = urlParts.slice(bucketIndex + 1).join('/');
+
+    console.log('🗑️ Deleting memory photo:', filename);
+
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .remove([filename]);
+
+    if (error) throw error;
+
+    console.log('✅ Memory photo deleted successfully');
+    return { success: true };
+  } catch (error: any) {
+    console.error('❌ Failed to delete memory photo:', error);
+    return { success: false, error: error.message || 'Failed to delete photo' };
   }
 }

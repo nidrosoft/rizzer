@@ -171,27 +171,55 @@ export const mockChatThreads: ChatThread[] = [
 export const getRizzCategories = (): RizzCategory[] => mockRizzCategories;
 export const getChatThreads = (): ChatThread[] => mockChatThreads;
 
-export const getRelativeTime = (date: Date): string => {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+export const getRelativeTime = (date: Date | string): string => {
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      return 'Recently';
+    }
+    
+    const now = new Date();
+    const diffMs = now.getTime() - dateObj.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  return `${Math.floor(diffDays / 30)} months ago`;
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return `${Math.floor(diffDays / 30)} months ago`;
+  } catch (error) {
+    console.error('Error parsing date:', error);
+    return 'Recently';
+  }
 };
 
-export const groupChatsByDate = (chats: ChatThread[]) => {
-  const groups: { [key: string]: ChatThread[] } = {};
+export const groupChatsByDate = (chats: any[]) => {
+  const groups: { [key: string]: any[] } = {};
 
   chats.forEach((chat) => {
-    const timeLabel = getRelativeTime(chat.timestamp);
-    if (!groups[timeLabel]) {
-      groups[timeLabel] = [];
+    try {
+      // Use last_message_at or created_at as fallback, or current date
+      const dateToUse = chat.last_message_at || chat.created_at || chat.timestamp || new Date().toISOString();
+      const timeLabel = getRelativeTime(dateToUse);
+      if (!groups[timeLabel]) {
+        groups[timeLabel] = [];
+      }
+      
+      // Transform to match expected format
+      const transformedChat = {
+        id: chat.id,
+        title: chat.title || 'New Conversation',
+        lastMessage: chat.last_message || 'Start a conversation...',
+        timestamp: chat.last_message_at || chat.created_at || new Date().toISOString(),
+      };
+      
+      groups[timeLabel].push(transformedChat);
+    } catch (error) {
+      console.error('Error grouping chat:', error, chat);
+      // Skip this chat if there's an error
     }
-    groups[timeLabel].push(chat);
   });
 
   return Object.entries(groups).map(([timeLabel, chats]) => ({

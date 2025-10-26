@@ -1,6 +1,6 @@
 /**
  * ChatThreadList Component
- * List of chat threads grouped by date for Genius Rizz tab
+ * List of chat threads grouped by date for Rizz Coach tab
  * Each time group has a unique color variant
  */
 

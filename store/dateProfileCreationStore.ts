@@ -211,7 +211,7 @@ export const useDateProfileCreationStore = create<DateProfileCreationState>((set
       // Save interests if any
       if (profileId && (draft.hobbies || draft.favorite_color || draft.favorite_flower)) {
         const interestsData = {
-          profile_id: profileId,
+          date_profile_id: profileId,
           hobbies: draft.hobbies || [],
           favorite_color: draft.favorite_color,
           favorite_flower: draft.favorite_flower,
@@ -225,7 +225,7 @@ export const useDateProfileCreationStore = create<DateProfileCreationState>((set
         const { data: existingInterests } = await supabase
           .from('date_profile_interests')
           .select('id')
-          .eq('profile_id', profileId)
+          .eq('date_profile_id', profileId)
           .single();
 
         if (existingInterests) {
@@ -233,7 +233,7 @@ export const useDateProfileCreationStore = create<DateProfileCreationState>((set
           await supabase
             .from('date_profile_interests')
             .update(interestsData)
-            .eq('profile_id', profileId);
+            .eq('date_profile_id', profileId);
         } else {
           // Insert
           await supabase
@@ -247,7 +247,7 @@ export const useDateProfileCreationStore = create<DateProfileCreationState>((set
         await supabase
           .from('date_profile_notes')
           .insert({
-            profile_id: profileId,
+            date_profile_id: profileId,
             content: draft.initial_notes,
             style: 'default',
             created_at: new Date().toISOString(),
@@ -298,7 +298,7 @@ export const useDateProfileCreationStore = create<DateProfileCreationState>((set
         const { data: interests } = await supabase
           .from('date_profile_interests')
           .select('*')
-          .eq('profile_id', profile.id)
+          .eq('date_profile_id', profile.id)
           .single();
 
         // Reconstruct draft

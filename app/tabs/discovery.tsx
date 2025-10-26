@@ -22,6 +22,7 @@ import HiddenGemsSection from '@/components/discovery/HiddenGemsSection';
 import DatePlannerSection from '@/components/discovery/DatePlannerSection';
 import LocationBottomSheet from '@/components/discovery/LocationBottomSheet';
 import FilterBottomSheet from '@/components/discovery/FilterBottomSheet';
+import ErrorModal from '@/components/ui/ErrorModal';
 
 // Data
 import { getDateIdeas, getEvents, getHiddenGems, getQuickFilters } from '@/data/discoveryData';
@@ -36,6 +37,8 @@ export default function DiscoveryScreen() {
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Data
   const dateIdeas = getDateIdeas(); // Show all for stacked effect
@@ -287,6 +290,19 @@ export default function DiscoveryScreen() {
           visible={showFilterSheet}
           onClose={() => setShowFilterSheet(false)}
           onApply={handleApplyFilters}
+        />
+
+        {/* Error Modal */}
+        <ErrorModal
+          visible={showErrorModal}
+          onClose={() => setShowErrorModal(false)}
+          onRetry={() => {
+            setShowErrorModal(false);
+            handleRefresh();
+          }}
+          title="Connection Issue"
+          message="Unable to load discovery content. Please check your internet connection and try again."
+          showRetry={true}
         />
 
         {/* Floating My Events Button */}

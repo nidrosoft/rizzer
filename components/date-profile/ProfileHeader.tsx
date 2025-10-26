@@ -6,13 +6,14 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { SafeLinearGradient as LinearGradient } from '@/components/ui/SafeLinearGradient';
+import { Edit2 } from 'iconsax-react-native';
 import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, FontSizes, FontWeights, BorderRadius, Shadows } from '@/constants/theme';
 import { DateProfileHeaderProps } from '@/types/dateProfile';
 import { getRelationshipStatusLabel } from '@/data/dateProfileData';
 
-export default function ProfileHeader({ profile, onBack, onEdit }: DateProfileHeaderProps) {
+export default function ProfileHeader({ profile, onBack, onEdit, onEditPhoto, onStatusUpdate }: DateProfileHeaderProps) {
   // Placeholder image if no photo
   const placeholderImage = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop';
   const photoUrl = profile.basicInfo.photo || placeholderImage;
@@ -56,6 +57,24 @@ export default function ProfileHeader({ profile, onBack, onEdit }: DateProfileHe
               />
             </View>
           </LinearGradient>
+          
+          {/* Edit Photo Button */}
+          {onEditPhoto && (
+            <TouchableOpacity 
+              style={styles.editPhotoButton}
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                onEditPhoto();
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.editPhotoIcon}>
+                <Edit2 size={16} color={Colors.text} variant="Bold" />
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Profile Info */}
@@ -70,16 +89,26 @@ export default function ProfileHeader({ profile, onBack, onEdit }: DateProfileHe
           )}
           
           {/* Status Badge */}
-          <LinearGradient
-            colors={[Colors.gradientStart, Colors.gradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.statusBadge}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              if (Platform.OS === 'ios') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              onStatusUpdate?.();
+            }}
           >
-            <Text style={styles.statusText}>
-              {getRelationshipStatusLabel(profile.basicInfo.status)}
-            </Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={[Colors.gradientStart, Colors.gradientEnd]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.statusBadge}
+            >
+              <Text style={styles.statusText}>
+                {getRelationshipStatusLabel(profile.basicInfo.status)}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* Stats */}
@@ -121,6 +150,25 @@ const styles = StyleSheet.create({
   },
   photoContainer: {
     marginBottom: Spacing.lg,
+    position: 'relative',
+  },
+  editPhotoButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+  },
+  editPhotoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   photoBorder: {
     width: 120,

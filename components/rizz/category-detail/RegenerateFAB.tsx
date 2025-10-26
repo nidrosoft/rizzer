@@ -13,10 +13,14 @@ import { normalize } from '@/utils/responsive';
 
 interface RegenerateFABProps {
   onPress: () => void;
+  isGenerating?: boolean;
+  hasExistingLines?: boolean;
 }
 
-export default function RegenerateFAB({ onPress }: RegenerateFABProps) {
+export default function RegenerateFAB({ onPress, isGenerating = false, hasExistingLines = false }: RegenerateFABProps) {
   const handlePress = () => {
+    if (isGenerating) return;
+    
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
@@ -25,9 +29,10 @@ export default function RegenerateFAB({ onPress }: RegenerateFABProps) {
 
   return (
     <TouchableOpacity 
-      style={styles.fab}
+      style={[styles.fab, isGenerating && styles.fabDisabled]}
       onPress={handlePress}
-      activeOpacity={0.9}
+      activeOpacity={isGenerating ? 1 : 0.9}
+      disabled={isGenerating}
     >
       <LinearGradient
         colors={[Colors.gradientStart, Colors.gradientEnd]}
@@ -36,7 +41,9 @@ export default function RegenerateFAB({ onPress }: RegenerateFABProps) {
         end={{ x: 1, y: 0 }}
       >
         <MagicStar size={24} color={Colors.textWhite} variant="Bold" />
-        <Text style={styles.text}>More Rizz</Text>
+        <Text style={styles.text}>
+          {isGenerating ? 'Generating...' : hasExistingLines ? 'More Rizz' : 'Generate Rizz'}
+        </Text>
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -54,6 +61,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  fabDisabled: {
+    opacity: 0.6,
   },
   gradient: {
     flexDirection: 'row',

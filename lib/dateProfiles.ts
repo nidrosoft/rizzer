@@ -40,6 +40,7 @@ export async function fetchUserDateProfiles(userId: string) {
         )
       `)
       .eq('user_id', userId)
+      .eq('archived', false)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -215,34 +216,6 @@ export async function createDateProfile(
 }
 
 /**
- * Add profile photo
- */
-export async function addProfilePhoto(
-  profileId: string,
-  photoUrl: string,
-  orderIndex: number = 0
-) {
-  try {
-    const { data, error } = await supabase
-      .from('date_profile_photos')
-      .insert({
-        date_profile_id: profileId,
-        photo_url: photoUrl,
-        order_index: orderIndex,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return { success: true, data, error: null };
-  } catch (err: any) {
-    console.error('Error adding profile photo:', err);
-    return { success: false, data: null, error: err.message };
-  }
-}
-
-/**
  * Add profile interests
  */
 export async function addProfileInterests(
@@ -368,50 +341,34 @@ export async function updateProfileInterests(
   }
 }
 
-// ==================== DELETE OPERATIONS ====================
 
 /**
- * Delete a date profile (soft delete)
+ * Add photo to date profile
  */
-export async function deleteDateProfile(profileId: string) {
+export async function addProfilePhoto(
+  profileId: string,
+  photoUrl: string,
+  orderIndex: number = 0
+) {
   try {
-    // Soft delete by updating a deleted_at timestamp
-    // Note: You may need to add this column to the table
-    const { error } = await supabase
-      .from('date_profiles')
-      .delete()
-      .eq('id', profileId);
-
-    if (error) throw error;
-
-    return { success: true, error: null };
-  } catch (err: any) {
-    console.error('Error deleting date profile:', err);
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Archive a date profile
- */
-export async function archiveDateProfile(profileId: string) {
-  try {
-    // Archive by changing status or adding archived flag
     const { data, error } = await supabase
-      .from('date_profiles')
-      .update({
-        status: 'archived',
-        updated_at: new Date().toISOString(),
+      .from('date_profile_photos')
+      .insert({
+        date_profile_id: profileId,
+        photo_url: photoUrl,
+        order_index: orderIndex,
       })
-      .eq('id', profileId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error adding profile photo:', error);
+      return { success: false, data: null, error: error.message };
+    }
 
     return { success: true, data, error: null };
   } catch (err: any) {
-    console.error('Error archiving date profile:', err);
+    console.error('Error in addProfilePhoto:', err);
     return { success: false, data: null, error: err.message };
   }
 }
@@ -419,8 +376,9 @@ export async function archiveDateProfile(profileId: string) {
 /**
  * Delete profile photo
  */
-export async function deleteProfilePhoto(photoId: string) {
+export async function deleteProfilePhoto(photoId: string, photoUrl: string) {
   try {
+    // Delete from database
     const { error } = await supabase
       .from('date_profile_photos')
       .delete()
@@ -428,10 +386,36 @@ export async function deleteProfilePhoto(photoId: string) {
 
     if (error) throw error;
 
+    // Note: Photo deletion from storage should be handled separately
+    // using the deletePhoto function from storage.ts
+
     return { success: true, error: null };
   } catch (err: any) {
     console.error('Error deleting profile photo:', err);
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get all photos for a profile
+ */
+export async function getProfilePhotos(profileId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('date_profile_photos')
+      .select('*')
+      .eq('date_profile_id', profileId)
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching profile photos:', error);
+      return { success: false, data: null, error: error.message };
+    }
+
+    return { success: true, data, error: null };
+  } catch (err: any) {
+    console.error('Error in getProfilePhotos:', err);
+    return { success: false, data: null, error: err.message };
   }
 }
 
@@ -511,4 +495,127 @@ function transformProfileData(dbProfile: any): DateProfileData {
     notes,
     photos,
   };
+}
+
+// ==================== ARCHIVE OPERATIONS ====================
+
+/**
+ * Fetch archived date profiles for a user
+ */
+export async function fetchArchivedProfiles(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('date_profiles')
+      .select(`
+        *,
+        date_profile_photos (
+          id,
+          photo_url,
+          order_index
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('archived', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Transform database data to app format (simplified for archived view)
+    const profiles = (data || []).map(profile => ({
+      id: profile.id,
+      name: profile.name,
+      age: profile.age,
+      photo: profile.date_profile_photos?.[0]?.photo_url || null,
+      status: profile.status,
+      archivedAt: profile.updated_at,
+    }));
+
+    return { success: true, data: profiles, error: null };
+  } catch (err: any) {
+    console.error('Error fetching archived profiles:', err);
+    return { success: false, data: null, error: err.message };
+  }
+}
+
+/**
+ * Archive a date profile
+ */
+export async function archiveDateProfile(profileId: string, userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('date_profiles')
+      .update({ archived: true })
+      .eq('id', profileId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error archiving profile:', error);
+      return { success: false, data: null, error: error.message };
+    }
+
+    return { success: true, data, error: null };
+  } catch (err: any) {
+    console.error('Error in archiveDateProfile:', err);
+    return { success: false, data: null, error: err.message };
+  }
+}
+
+/**
+ * Restore an archived date profile
+ */
+export async function restoreDateProfile(profileId: string, userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('date_profiles')
+      .update({ archived: false })
+      .eq('id', profileId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error restoring profile:', error);
+      return { success: false, data: null, error: error.message };
+    }
+
+    return { success: true, data, error: null };
+  } catch (err: any) {
+    console.error('Error in restoreDateProfile:', err);
+    return { success: false, data: null, error: err.message };
+  }
+}
+
+// ==================== DELETE OPERATIONS ====================
+
+/**
+ * Delete a date profile and all associated data
+ */
+export async function deleteDateProfile(profileId: string, userId: string) {
+  try {
+    // Note: Cascade delete is handled by database foreign key constraints
+    // This will automatically delete:
+    // - date_profile_interests
+    // - date_profile_photos
+    // - date_profile_notes
+    // - date_profile_note_folders
+    // - date_profile_favorites
+    
+    const { error } = await supabase
+      .from('date_profiles')
+      .delete()
+      .eq('id', profileId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error deleting profile:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    console.error('Error in deleteDateProfile:', err);
+    return { success: false, error: err.message };
+  }
 }
