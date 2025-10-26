@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase';
 import ChatMessage from '@/components/genius-chat/ChatMessage';
 import ChatMessageList from '@/components/genius-chat/ChatMessageList';
 import ChatHeader from '@/components/genius-chat/ChatHeader';
+import ChatInput from '@/components/genius-chat/ChatInput';
 
 interface Message {
   id: string;
@@ -662,56 +663,18 @@ export default function GeniusChatScreen() {
         />
 
         {/* Input Area */}
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
-            <TouchableOpacity 
-              style={styles.inputIconButton}
-              onPress={handleAttachment}
-              activeOpacity={0.6}
-            >
-              <AttachCircle size={24} color={Colors.textSecondary} variant="Bold" />
-            </TouchableOpacity>
-            
-            <TextInput
-              style={styles.textInput}
-              placeholder="Ask anything..."
-              placeholderTextColor={Colors.textSecondary}
-              value={message}
-              onChangeText={setMessage}
-              multiline
-              maxLength={500}
-            />
-            
-            <TouchableOpacity 
-              style={styles.inputIconButton}
-              onPress={handleVoiceInput}
-              activeOpacity={0.6}
-            >
-              {recording ? (
-                <AudioWaveform isRecording={recording} color={Colors.textSecondary} />
-              ) : (
-                <Microphone size={24} color={Colors.textSecondary} variant="Bold" />
-              )}
-            </TouchableOpacity>
-          </View>
-        
-        <TouchableOpacity 
-          style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
-          onPress={handleSendMessage}
-          activeOpacity={0.8}
-          disabled={!message.trim() || sending}
-        >
-          <LinearGradient
-            colors={message.trim() && !sending ? [Colors.gradientStart, Colors.gradientEnd] : ['#E0E0E0', '#E0E0E0']}
-            style={styles.sendButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            <Send2 size={20} color={Colors.textWhite} variant="Bold" />
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+        <ChatInput
+          message={message}
+          onChangeMessage={setMessage}
+          onSend={handleSendMessage}
+          onVoiceInput={handleVoiceInput}
+          onAttachment={handleAttachment}
+          recording={recording}
+          sending={sending}
+          selectedImage={selectedImage}
+          onRemoveImage={() => setSelectedImage(null)}
+          analyzingImage={analyzingImage}
+        />
 
     {/* Action Sheet */}
     <Modal
